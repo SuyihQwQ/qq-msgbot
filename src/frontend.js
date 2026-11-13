@@ -46,7 +46,10 @@ body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; d
 .msg.incoming { align-self: flex-start; }
 .msg.outgoing { align-self: flex-end; align-items: flex-end; }
 
-/* 👇 修改：允许显示 bot 自己的名字并靠右 */
+/* 系统消息居中显示 */
+.msg.system { align-self: center; align-items: center; max-width: 90%; margin: 10px 0;}
+.msg-system-text { font-size: 12px; color: #999; background: #f0f0f0; padding: 4px 10px; border-radius: 12px; text-align: center;}
+
 .msg-author { font-size: 12px; color: #888; margin-bottom: 4px; padding-left: 4px; word-break: break-all; }
 .msg.outgoing .msg-author { padding-right: 4px; text-align: right; }
 
@@ -285,6 +288,11 @@ async function loadMessages(sessionId, isPush) {
 
     const now = Date.now();
     msgEl.innerHTML = msgs.map(m => {
+      // 👇 渲染系统消息
+      if (m.type === 'system') {
+        return \`<div class="msg system"><div class="msg-system-text">\${escapeHTML(m.content)}</div></div>\`;
+      }
+
       const isOut = m.type === 'outgoing';
       const isWithin2Mins = (now - m.timestamp) < 2 * 60 * 1000;
       const isWithin5Mins = (now - m.timestamp) < 5 * 60 * 1000;
@@ -293,7 +301,6 @@ async function loadMessages(sessionId, isPush) {
       const showRecallBtn = isOut && isWithin2Mins;
       const showGroupOps = !isOut && currentSession.is_group === 1;
 
-      // 👇 显示机器人的真实 ID
       const authorName = isOut ? (currentSession.bot_openid || 'Bot (ID未知)') : (m.author_name || '用户');
 
       let attachmentsHtml = '';

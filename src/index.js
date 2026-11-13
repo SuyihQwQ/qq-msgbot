@@ -44,7 +44,6 @@ async function ensureTables(env) {
                        env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, type TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, attachments TEXT, msg_id TEXT, timestamp INTEGER, is_passive INTEGER DEFAULT 0, author_name TEXT)`),
                        env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)`)
     ]);
-    // 兼容旧表，自动补充字段
     try { await env.DB.exec(`ALTER TABLE sessions ADD COLUMN bot_openid TEXT`); } catch (e) {}
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN attachments TEXT`); } catch (e) {}
     dbInitialized = true;
@@ -84,14 +83,14 @@ async function processAttachments(env, attachments) {
         if (!fileRes.ok) throw new Error('下载失败');
         const buffer = await fileRes.arrayBuffer();
         if (buffer.byteLength > 2 * 1024 * 1024) {
-          processed.push({ ...att, url: '', error: '文件过大(>2MB)，已放弃转存' });
+          processed.push({ ...att, url: '', error: '文件过大(>2MB)' });
           continue;
         }
         const fileId = crypto.randomUUID();
         await env.BOT_KV.put(`file:${fileId}`, buffer, { expirationTtl: 604800 });
         processed.push({ ...att, url: `/api/file/${fileId}` });
       } catch (err) {
-        processed.push({ ...att, url: '', error: '转存失败或链接已过期' });
+        processed.push({ ...att, url: '', error: '转存失败或已过期' });
       }
     } else {
       const fileType = type.includes('video') ? '视频' : '普通文件';
@@ -122,7 +121,6 @@ async function getAccessToken(env) {
   try { return await tokenPromise; } catch (e) { tokenPromise = null; throw e; }
 }
 
-// 👇 获取机器人自身 ID
 async function getBotState(env, groupOpenid) {
   const token = await getAccessToken(env);
   const res = await fetch(`${QQ_SEND_BASE}/groups/${groupOpenid}/bot_state`, {
@@ -205,20 +203,7 @@ async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
   return verify(null, msg, publicKey, Buffer.from(signatureHex, 'hex'));
 }
 
-// ================= 异步处理 QQ 事件 =================
-async function processGroupAddRobot(payload, env) {
-  try {
-    const groupOpenid = payload.d?.group_openid;
-    if (!groupOpenid) return;
-    const botState = await getBotState(env, groupOpenid);
-    await env.DB.prepare(
-      `INSERT INTO sessions (id, is_group, name, last_active, last_message, bot_openid) VALUES (?, 1, ?, ?, '[机器人已入群]', ?) ON CONFLICT(id) DO UPDATE SET bot_openid = excluded.bot_openid`
-    ).bind(groupOpenid, `群聊 (${groupOpenid})`, Date.now(), botState.member_openid).run();
-  } catch (e) {
-    console.error('【GROUP_ADD_ROBOT 失败】:', e.message);
-  }
-}
-
+// ================= 异步处理：普通聊天消息 =================
 async function processIncomingMessage(payload, env, ctx) {
   try {
     await ensureTables(env);
@@ -229,7 +214,6 @@ async function processIncomingMessage(payload, env, ctx) {
     const authorName = authorOpenid ? authorOpenid : '未知用户';
     if (!sessionId) return;
 
-    // 惰性补全机器人 ID
     let session = await env.DB.prepare(`SELECT * FROM sessions WHERE id = ?`).bind(sessionId).first();
     if (isGroup && session && !session.bot_openid) {
       try {
@@ -270,19 +254,95 @@ async function processIncomingMessage(payload, env, ctx) {
   }
 }
 
-async function processRecallEvent(payload, env) {
+// ================= 👇 异步处理：各类系统事件 =================
+async function processSystemEvent(payload, env, ctx) {
   try {
-    const d = payload.d || {};
-    const messageId = d.message_id || d.msg_id || d.id;
-    if (!messageId) return;
     await ensureTables(env);
-    await env.DB.prepare(`DELETE FROM messages WHERE msg_id = ?`).bind(messageId).run();
-    const sessionId = d.group_openid || d.session_id;
-    if (sessionId) {
-      const id = env.CHAT_ROOM.idFromName('global');
-      await env.CHAT_ROOM.get(id).broadcast({ type: 'update', sessionId });
+    const d = payload.d || {};
+    const t = payload.t;
+    let sessionId = '';
+    let isGroup = 1;
+    let content = '';
+
+    // 事件解析字典
+    switch (t) {
+      case 'GROUP_ADD_ROBOT':
+        sessionId = d.group_openid;
+        content = `[系统] 机器人加入了群聊 (操作者: ${d.op_member_openid || '未知'})`;
+        try {
+          const bs = await getBotState(env, sessionId);
+          await env.DB.prepare(`UPDATE sessions SET bot_openid = ? WHERE id = ?`).bind(bs.member_openid, sessionId).run();
+        } catch(e){}
+        break;
+      case 'GROUP_DEL_ROBOT':
+        sessionId = d.group_openid;
+        content = `[系统] 机器人被移出了群聊 (操作者: ${d.op_member_openid || '未知'})`;
+        break;
+      case 'GROUP_MEMBER_ADD':
+        sessionId = d.group_openid;
+        content = `[系统] 新成员 ${d.member_openid || '未知'} 加入了群聊`;
+        break;
+      case 'GROUP_MEMBER_REMOVE':
+        sessionId = d.group_openid;
+        content = `[系统] 成员 ${d.member_openid || '未知'} 退出了群聊`;
+        break;
+      case 'GROUP_MSG_RECEIVE':
+        sessionId = d.group_openid;
+        content = `[系统] 群聊开启了消息推送`;
+        break;
+      case 'GROUP_MSG_REJECT':
+        sessionId = d.group_openid;
+        content = `[系统] 群聊关闭了消息推送`;
+        break;
+      case 'GROUP_JOIN_REQUEST':
+        sessionId = d.group_openid;
+        content = `[系统] 收到新的加群申请`;
+        break;
+      case 'FRIEND_ADD':
+        sessionId = d.openid;
+        isGroup = 0;
+        content = `[系统] 用户添加了机器人好友`;
+        break;
+      case 'FRIEND_DEL':
+        sessionId = d.openid;
+        isGroup = 0;
+        content = `[系统] 用户删除了机器人好友`;
+        break;
+      case 'C2C_MSG_RECEIVE':
+        sessionId = d.openid;
+        isGroup = 0;
+        content = `[系统] 用户开启了单聊消息推送`;
+        break;
+      case 'C2C_MSG_REJECT':
+        sessionId = d.openid;
+        isGroup = 0;
+        content = `[系统] 用户关闭了单聊消息推送`;
+        break;
+      default:
+        // 对于频道等暂不处理的事件，直接忽略
+        return;
     }
-  } catch (e) {}
+
+    if (!sessionId) return;
+    const now = Date.now();
+
+    // 1. 更新会话列表预览
+    await env.DB.prepare(
+      `INSERT INTO sessions (id, is_group, name, last_active, last_message) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_active = excluded.last_active, last_message = excluded.last_message`
+    ).bind(sessionId, isGroup, isGroup ? `群聊 (${sessionId})` : `用户 (${sessionId})`, now, content).run();
+
+    // 2. 插入系统消息记录 (用独特的 UUID 防止重复)
+    const uniqueId = `system_${crypto.randomUUID()}`;
+    await env.DB.prepare(
+      `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, author_name) VALUES (?, 'system', 'system', ?, ?, ?, 'System')`
+    ).bind(sessionId, content, uniqueId, now).run();
+
+    // 3. 广播更新
+    const id = env.CHAT_ROOM.idFromName('global');
+    ctx.waitUntil(env.CHAT_ROOM.get(id).broadcast({ type: 'update', sessionId }));
+  } catch (e) {
+    console.error('【系统事件处理失败】:', e.message);
+  }
 }
 
 // ================= API 路由 =================
@@ -382,7 +442,7 @@ async function handleApi(request, env, path) {
   }
 }
 
-// ================= Webhook =================
+// ================= Webhook 入口分发 =================
 async function handleQQWebhook(request, env, ctx) {
   try {
     const rawBody = await request.arrayBuffer();
@@ -396,13 +456,23 @@ async function handleQQWebhook(request, env, ctx) {
       if (!valid) console.warn('验签未通过');
     }
 
-    if (payload.t === 'GROUP_ADD_ROBOT') {
-      ctx.waitUntil(processGroupAddRobot(payload, env));
-    } else if (['GROUP_AT_MESSAGE_CREATE', 'GROUP_MESSAGE_CREATE', 'C2C_MESSAGE_CREATE'].includes(payload.t)) {
+    const t = payload.t;
+    const CHAT_EVENTS = ['GROUP_AT_MESSAGE_CREATE', 'GROUP_MESSAGE_CREATE', 'C2C_MESSAGE_CREATE'];
+    const SYSTEM_EVENTS = [
+      'GROUP_ADD_ROBOT', 'GROUP_DEL_ROBOT',
+      'GROUP_MEMBER_ADD', 'GROUP_MEMBER_REMOVE',
+      'GROUP_MSG_RECEIVE', 'GROUP_MSG_REJECT',
+      'GROUP_JOIN_REQUEST',
+      'FRIEND_ADD', 'FRIEND_DEL',
+      'C2C_MSG_RECEIVE', 'C2C_MSG_REJECT'
+    ];
+
+    if (CHAT_EVENTS.includes(t)) {
       ctx.waitUntil(processIncomingMessage(payload, env, ctx));
-    } else if (['GROUP_RECALL', 'group_recall'].includes(payload.t)) {
-      ctx.waitUntil(processRecallEvent(payload, env));
+    } else if (SYSTEM_EVENTS.includes(t)) {
+      ctx.waitUntil(processSystemEvent(payload, env, ctx));
     }
+
     return Response.json({ ok: true });
   } catch (e) {
     return new Response('Bad Request', { status: 400 });
