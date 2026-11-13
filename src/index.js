@@ -5,7 +5,6 @@ const QQ_TOKEN_URL = 'https://api.bot.qq.com/app/getAppAccessToken';
 const QQ_SEND_BASE = 'https://api.sgroup.qq.com/v2';
 
 // ================= 工具函数 =================
-// buildEd25519Seed 等工具函数保持不变
 function buildEd25519Seed(secret) {
   if (!secret) throw new Error('QQ_CLIENT_SECRET is empty');
   let seed = new TextEncoder().encode(secret);
@@ -75,7 +74,6 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   return data;
 }
 
-// 👇 核心修改：改用异步签名与验签 API
 async function handleValidation(plainToken, eventTs, env) {
   const seed = buildEd25519Seed(env.QQ_CLIENT_SECRET);
   const msg = new TextEncoder().encode(eventTs + plainToken);
@@ -124,16 +122,31 @@ async function processIncomingMessage(payload, env) {
 // ================= API 路由 =================
 async function handleApi(request, env, path) {
   try {
+    // 👇 1. 优先检查环境变量 (包括登录接口也需要知道 WEB_PASSWORD) 👇
+    const missingEnvs = [];
+    if (!env.QQ_APP_ID) missingEnvs.push('QQ_APP_ID');
+    if (!env.QQ_CLIENT_SECRET) missingEnvs.push('QQ_CLIENT_SECRET');
+    if (!env.WEB_PASSWORD) missingEnvs.push('WEB_PASSWORD');
+
+    if (missingEnvs.length > 0) {
+      return Response.json({ error: 'ENV_MISSING', missing: missingEnvs }, { status: 500 });
+    }
+
+    // 2. 登录接口
     if (path === '/api/login' && request.method === 'POST') {
       const { password } = await request.json();
       if (password === env.WEB_PASSWORD) return Response.json({ token: env.WEB_PASSWORD });
       return Response.json({ error: '密码错误' }, { status: 401 });
     }
 
+    // 3. 鉴权拦截
     const authHeader = request.headers.get('Authorization');
     if (authHeader !== `Bearer ${env.WEB_PASSWORD}`) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!env.BOT_KV) return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
+    // 4. 拦截未绑定 KV 的请求
+    if (!env.BOT_KV) {
+      return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
+    }
 
     if (path === '/api/sessions' && request.method === 'GET') {
       const list = await env.BOT_KV.list({ prefix: 'session:' });
