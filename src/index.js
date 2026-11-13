@@ -3,8 +3,6 @@ import { createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
 
 const QQ_TOKEN_URL = 'https://api.bot.qq.com/app/getAppAccessToken';
 const QQ_SEND_BASE = 'https://api.sgroup.qq.com/v2';
-
-// PKCS#8 头部：将 32 字节 raw seed 包装为标准 PKCS#8 私钥
 const PKCS8_HEADER = Buffer.from('302e020100300506032b657004220420', 'hex');
 
 // ================= 工具函数 =================
@@ -37,7 +35,7 @@ function parseMessageContent(d) {
   return contentText.trim() || '[不支持的消息类型]';
 }
 
-// ================= 👇 node:crypto 密钥构造 =================
+// ================= node:crypto 密钥构造 =================
 function makePrivateKey(secret) {
   const seed = buildEd25519Seed(secret);
   const pkcs8 = Buffer.concat([PKCS8_HEADER, Buffer.from(seed)]);
@@ -84,16 +82,12 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   return data;
 }
 
-// ================= 👇 node:crypto 签名与验签 =================
+// ================= node:crypto 签名与验签 =================
 async function handleValidation(plainToken, eventTs, env) {
   const privateKey = makePrivateKey(env.QQ_CLIENT_SECRET);
   const msg = Buffer.from(eventTs + plainToken, 'utf-8');
-  // Ed25519 内部处理 SHA-512，algorithm 传 null
   const signature = sign(null, msg, privateKey);
-  return Response.json({
-    plain_token: plainToken,
-    signature: signature.toString('hex'),
-  });
+  return Response.json({ plain_token: plainToken, signature: signature.toString('hex') });
 }
 
 async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
@@ -136,6 +130,7 @@ async function processIncomingMessage(payload, env) {
 // ================= API 路由 =================
 async function handleApi(request, env, path) {
   try {
+    // 健康检查接口
     if (path === '/api/health' && request.method === 'GET') {
       const missingEnvs = [];
       if (!env.QQ_APP_ID) missingEnvs.push('QQ_APP_ID');
@@ -157,18 +152,42 @@ async function handleApi(request, env, path) {
     const authHeader = request.headers.get('Authorization');
     if (authHeader !== `Bearer ${env.WEB_PASSWORD}`) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    // 前置 KV 检查
+    if (!env.BOT_KV) {
+      return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
+    }
+
     if (path === '/api/sessions' && request.method === 'GET') {
       const list = await env.BOT_KV.list({ prefix: 'session:' });
-      const sessions = await Promise.all(list.keys.map(async k => JSON.parse(await env.BOT_KV.get(k.name))));
-      sessions.sort((a, b) => b.lastActive - a.lastActive);
-      return Response.json(sessions);
+      
+      // 👇 核心修复：增加 try-catch 容错，过滤掉损坏的脏数据
+      const sessions = await Promise.all(list.keys.map(async k => {
+        try {
+          const val = await env.BOT_KV.get(k.name);
+          return val ? JSON.parse(val) : null;
+        } catch (e) {
+          console.warn(`解析会话 ${k.name} 失败，已跳过:`, e.message);
+          return null;
+        }
+      }));
+      
+      const validSessions = sessions.filter(s => s !== null);
+      validSessions.sort((a, b) => b.lastActive - a.lastActive);
+      return Response.json(validSessions);
     }
 
     if (path === '/api/messages' && request.method === 'GET') {
       const sessionId = new URL(request.url).searchParams.get('id');
       if (!sessionId) return Response.json({ error: 'Missing ID' }, { status: 400 });
-      const data = await env.BOT_KV.get(`messages:${sessionId}`);
-      return Response.json(data ? JSON.parse(data) : []);
+      
+      // 👇 核心修复：消息列表也加上容错
+      try {
+        const data = await env.BOT_KV.get(`messages:${sessionId}`);
+        return Response.json(data ? JSON.parse(data) : []);
+      } catch (e) {
+        console.warn(`解析消息 ${sessionId} 失败:`, e.message);
+        return Response.json([]); // 坏了就返回空数组，不阻断前端
+      }
     }
 
     if (path === '/api/send' && request.method === 'POST') {
@@ -178,15 +197,21 @@ async function handleApi(request, env, path) {
       const res = await sendQQMessage(env, sessionId, isGroup, content, msgId, msgSeq || 1);
       
       const key = `messages:${sessionId}`;
-      let msgs = JSON.parse(await env.BOT_KV.get(key) || '[]');
-      msgs.push({ type: 'outgoing', role: 'bot', content, msgId: res.id, timestamp: Date.now(), isPassive: !!msgId });
-      if (msgs.length > 500) msgs = msgs.slice(-500);
-      await env.BOT_KV.put(key, JSON.stringify(msgs));
+      try {
+        let msgs = JSON.parse(await env.BOT_KV.get(key) || '[]');
+        msgs.push({ type: 'outgoing', role: 'bot', content, msgId: res.id, timestamp: Date.now(), isPassive: !!msgId });
+        if (msgs.length > 500) msgs = msgs.slice(-500);
+        await env.BOT_KV.put(key, JSON.stringify(msgs));
+      } catch (e) {
+        console.error('写入发送记录失败:', e.message);
+      }
+      
       return Response.json({ ok: true, msgId: res.id });
     }
 
     return Response.json({ error: 'Not Found' }, { status: 404 });
   } catch (err) {
+    console.error('【API 异常】', path, err.message, err.stack);
     return Response.json({ error: err.message || 'Server Error' }, { status: 500 });
   }
 }

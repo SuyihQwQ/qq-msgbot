@@ -4,5 +4,10 @@
   "main": "src/index.js",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "kv_namespaces": [
+    {
+      "binding": "BOT_KV" // 自动创建/绑定，避免手动绑定被覆盖
+    }
+  ]
 }
