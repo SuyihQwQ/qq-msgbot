@@ -19,31 +19,13 @@ function hexToBytes(hex) {
   for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
   return bytes;
 }
+
 function parseMessageContent(d) {
   let contentText = d.content || '';
-
-  // 1. 将 QQ 的表情标签转换为友好文字
-  // 匹配格式：<faceType=6,faceId="0",ext="...">
   contentText = contentText.replace(/<faceType=[^>]+>/gi, '[表情]');
-  // 兼容其他可能的 face 格式
   contentText = contentText.replace(/<face[^>]+>/gi, '[表情]');
-
-  // 2. 将 @ 标签转换为友好文字
-  // 匹配格式：<@5A461C4F541A3563FDF15191BE3C6B35> 或 <@!xxxx>
-  contentText = contentText.replace(/<@[^>]+>/gi, '@某人');
-
-  // 3. 处理非文本的附件（如纯图片、语音、视频）
-  if (!contentText.trim() && d.attachments?.length > 0) {
-    const tags = d.attachments.map(att => {
-      if (att.content_type?.includes('image')) return '[图片]';
-      if (att.content_type?.includes('voice')) return '[语音]';
-      if (att.content_type?.includes('video')) return '[视频]';
-      return '[文件/附件]';
-    });
-    contentText = tags.join(' ');
-  }
-
-  return contentText.trim() || '[不支持的消息类型]';
+  contentText = contentText.replace(/<@!?([A-Za-z0-9]+)>/gi, (match, openid) => `@用户_${openid.substring(0, 6)}`);
+  return contentText.trim();
 }
 
 // ================= node:crypto 密钥构造 =================
@@ -53,34 +35,18 @@ function makePrivateKey(secret) {
   return createPrivateKey({ key: pkcs8, format: 'der', type: 'pkcs8' });
 }
 
-// ================= 👇 自动初始化 D1 数据库表 =================
+// ================= 自动初始化 D1 数据库表 =================
 let dbInitialized = false;
 async function ensureTables(env) {
   if (dbInitialized) return;
   try {
     await env.DB.batch([
-      env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        is_group INTEGER NOT NULL,
-        name TEXT,
-        last_active INTEGER,
-        last_message TEXT
-      )`),
-      env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        type TEXT NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        msg_id TEXT,
-        timestamp INTEGER,
-        is_passive INTEGER DEFAULT 0,
-        author_name TEXT
-      )`),
-      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)`)
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, is_group INTEGER NOT NULL, name TEXT, last_active INTEGER, last_message TEXT)`),
+                       env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, type TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, attachments TEXT, msg_id TEXT, timestamp INTEGER, is_passive INTEGER DEFAULT 0, author_name TEXT)`),
+                       env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)`)
     ]);
+    try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN attachments TEXT`); } catch (e) {}
     dbInitialized = true;
-    console.log('✅ D1 数据库表结构检查/初始化完成');
   } catch (e) {
     console.error('❌ D1 数据库初始化失败:', e.message);
   }
@@ -90,21 +56,58 @@ async function ensureTables(env) {
 export class ChatRoom extends DurableObject {
   async fetch(request) {
     const upgradeHeader = request.headers.get('Upgrade');
-    if (!upgradeHeader || upgradeHeader !== 'websocket') {
-      return new Response('Expected WebSocket', { status: 426 });
-    }
+    if (!upgradeHeader || upgradeHeader !== 'websocket') return new Response('Expected WebSocket', { status: 426 });
     const webSocketPair = new WebSocketPair();
     const [client, server] = Object.values(webSocketPair);
     this.ctx.acceptWebSocket(server);
     return new Response(null, { status: 101, webSocket: client });
   }
-
   async broadcast(data) {
     const message = JSON.stringify(data);
     for (const ws of this.ctx.getWebSockets()) {
-      try { ws.send(message); } catch (e) { /* ignore */ }
+      try { ws.send(message); } catch (e) {}
     }
   }
+}
+
+// ================= 👇 KV 文件转存逻辑 =================
+async function processAttachments(env, attachments) {
+  if (!attachments || attachments.length === 0) return null;
+
+  const processed = [];
+  for (const att of attachments) {
+    const type = att.content_type || '';
+
+    // 👇 移除 video，只处理图片和语音
+    const isMedia = type.startsWith('image/') || type.includes('voice');
+
+    if (isMedia) {
+      try {
+        const fileRes = await fetch(att.url);
+        if (!fileRes.ok) throw new Error('下载失败');
+
+        const buffer = await fileRes.arrayBuffer();
+        // 限制大小不超过 2MB
+        if (buffer.byteLength > 2 * 1024 * 1024) {
+          processed.push({ ...att, url: '', error: '文件过大(>2MB)，已放弃转存' });
+          continue;
+        }
+
+        const fileId = crypto.randomUUID();
+        // 存入 KV，TTL 7天
+        await env.BOT_KV.put(`file:${fileId}`, buffer, { expirationTtl: 604800 });
+        processed.push({ ...att, url: `/api/file/${fileId}` });
+      } catch (err) {
+        console.error('附件转存失败:', err.message);
+        processed.push({ ...att, url: '', error: '转存失败或链接已过期' });
+      }
+    } else {
+      // 视频和其他文件不转存
+      const fileType = type.includes('video') ? '视频' : '普通文件';
+      processed.push({ ...att, url: '', error: `${fileType}不支持转存` });
+    }
+  }
+  return JSON.stringify(processed);
 }
 
 // ================= QQ API 逻辑 =================
@@ -160,29 +163,42 @@ async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
 // ================= 异步处理 QQ 消息 =================
 async function processIncomingMessage(payload, env, ctx) {
   try {
-    await ensureTables(env); // 👈 核心：在写入前确保表已存在
+    await ensureTables(env);
 
     const d = payload.d || {};
     const isGroup = payload.t.startsWith('GROUP');
     const sessionId = isGroup ? d.group_openid : d.author?.user_openid;
-    const authorName = isGroup ? d.author?.member_openid : d.author?.user_openid;
+    const authorOpenid = isGroup ? d.author?.member_openid : d.author?.user_openid;
+    const authorName = authorOpenid ? `用户_${authorOpenid.substring(0, 6)}` : '未知用户';
     if (!sessionId) return;
 
     const safeContent = parseMessageContent(d);
+
+    // 处理附件并转存 KV
+    const attachmentsData = await processAttachments(env, d.attachments);
+
+    // 会话预览
+    let previewContent = safeContent;
+    if (!previewContent && d.attachments) {
+      const type = d.attachments[0].content_type || '';
+      if (type.includes('image')) previewContent = '[图片]';
+      else if (type.includes('video')) previewContent = '[视频]';
+      else if (type.includes('voice')) previewContent = '[语音]';
+      else previewContent = '[文件]';
+    }
+    if (!previewContent) previewContent = '[暂不支持的消息]';
+
     const now = Date.now();
 
     await env.DB.prepare(
-      `INSERT INTO sessions (id, is_group, name, last_active, last_message)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET last_active = excluded.last_active, last_message = excluded.last_message`
-    ).bind(sessionId, isGroup ? 1 : 0, isGroup ? `群聊 (${sessionId})` : `用户 (${authorName})`, now, safeContent).run();
+      `INSERT INTO sessions (id, is_group, name, last_active, last_message) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_active = excluded.last_active, last_message = excluded.last_message`
+    ).bind(sessionId, isGroup ? 1 : 0, isGroup ? `群聊 (${sessionId})` : `用户 (${authorName})`, now, previewContent).run();
 
     const existing = await env.DB.prepare(`SELECT id FROM messages WHERE msg_id = ?`).bind(d.id).first();
     if (!existing) {
       await env.DB.prepare(
-        `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, author_name)
-         VALUES (?, 'incoming', 'user', ?, ?, ?, ?)`
-      ).bind(sessionId, safeContent, d.id, now, authorName).run();
+        `INSERT INTO messages (session_id, type, role, content, attachments, msg_id, timestamp, author_name) VALUES (?, 'incoming', 'user', ?, ?, ?, ?, ?)`
+      ).bind(sessionId, safeContent, attachmentsData, d.id, now, authorName).run();
     }
 
     const id = env.CHAT_ROOM.idFromName('global');
@@ -202,8 +218,18 @@ async function handleApi(request, env, path) {
       if (!env.QQ_CLIENT_SECRET) missingEnvs.push('QQ_CLIENT_SECRET');
       if (!env.WEB_PASSWORD) missingEnvs.push('WEB_PASSWORD');
       if (missingEnvs.length > 0) return Response.json({ error: 'ENV_MISSING', missing: missingEnvs }, { status: 500 });
-      if (!env.DB) return Response.json({ error: 'D1_NOT_BOUND' }, { status: 500 });
+      if (!env.DB || !env.BOT_KV) return Response.json({ error: 'DB_NOT_BOUND' }, { status: 500 });
       return Response.json({ ok: true });
+    }
+
+    if (path.startsWith('/api/file/') && request.method === 'GET') {
+      const fileId = path.split('/').pop();
+      const fileBuffer = await env.BOT_KV.get(`file:${fileId}`, 'arrayBuffer');
+      if (!fileBuffer) return new Response('File Not Found or Expired', { status: 404 });
+
+      return new Response(fileBuffer, {
+        headers: { 'Cache-Control': 'public, max-age=604800' }
+      });
     }
 
     if (path === '/api/login' && request.method === 'POST') {
@@ -215,7 +241,7 @@ async function handleApi(request, env, path) {
     const authHeader = request.headers.get('Authorization');
     if (authHeader !== `Bearer ${env.WEB_PASSWORD}`) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    await ensureTables(env); // 👈 核心：在查询前确保表已存在
+    await ensureTables(env);
 
     if (path === '/api/sessions' && request.method === 'GET') {
       const { results } = await env.DB.prepare(`SELECT * FROM sessions ORDER BY last_active DESC LIMIT 100`).all();
@@ -233,16 +259,16 @@ async function handleApi(request, env, path) {
       const { sessionId, isGroup, content, msgId, msgSeq } = await request.json();
       if (!sessionId || !content) return Response.json({ error: '参数缺失' }, { status: 400 });
       const res = await sendQQMessage(env, sessionId, isGroup, content, msgId, msgSeq || 1);
-      
+
       const now = Date.now();
       await env.DB.prepare(
         `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, is_passive) VALUES (?, 'outgoing', 'bot', ?, ?, ?, ?)`
       ).bind(sessionId, content, res.id, now, msgId ? 1 : 0).run();
       await env.DB.prepare(`UPDATE sessions SET last_active = ? WHERE id = ?`).bind(now, sessionId).run();
-      
+
       const id = env.CHAT_ROOM.idFromName('global');
       await env.CHAT_ROOM.get(id).broadcast({ type: 'update', sessionId });
-      
+
       return Response.json({ ok: true, msgId: res.id });
     }
 
