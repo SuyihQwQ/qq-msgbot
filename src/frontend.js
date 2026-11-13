@@ -7,84 +7,101 @@ export const FRONTEND_HTML = `
 <title>QQ MsgBot 控制台</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; display: flex; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; height: 100vh; display: flex; color: #333; }
 
-#loading-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; font-size: 16px; color: #666; flex-direction: column; gap: 10px;}
-.spinner { width: 30px; height: 30px; border: 3px solid #ccc; border-top-color: #1890ff; border-radius: 50%; animation: spin 1s linear infinite; }
+/* Loading */
+#loading-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; font-size: 15px; color: #666; flex-direction: column; gap: 12px;}
+.spinner { width: 36px; height: 36px; border: 3px solid #d9d9d9; border-top-color: #1890ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-#login-page { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; }
-.login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 300px; }
-.login-box input { width: 100%; padding: 10px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; }
-.login-box button { width: 100%; padding: 10px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+/* 登录 */
+#login-page { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; background: #f0f2f5;}
+.login-box { background: white; padding: 40px 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); width: 320px; }
+.login-box h2 { text-align: center; margin-bottom: 25px; font-weight: 600; color: #1a1a1a; }
+.login-box input { width: 100%; padding: 12px 15px; margin-bottom: 20px; border: 1px solid #d9d9d9; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s;}
+.login-box input:focus { border-color: #1890ff; }
+.login-box button { width: 100%; padding: 12px; background: #1890ff; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; transition: background 0.2s;}
+.login-box button:hover { background: #40a9ff; }
 
-.error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; text-align: left; }
-.error-box { background: #1e1e1e; padding: 40px; border-radius: 8px; border: 1px solid #ff4d4f; max-width: 600px; }
-.error-box h2 { color: #ff4d4f; margin-bottom: 20px; text-align: center;}
-.error-box p { line-height: 1.6; margin-bottom: 15px; font-size: 14px; color: #ccc; }
-.error-box code { background: #333; padding: 2px 6px; border-radius: 4px; color: #ffbaba; font-family: monospace; }
-.error-box ol { margin-left: 20px; color: #ccc; font-size: 14px; line-height: 1.8; }
-.missing-list { color: #ff4d4f; font-weight: bold; font-size: 16px; display: block; margin: 10px 0; }
+/* 错误遮罩 */
+.error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+.error-box { background: #fff; padding: 40px; border-radius: 12px; border-top: 4px solid #ff4d4f; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+.error-box h2 { color: #ff4d4f; margin-bottom: 20px; text-align: center; font-size: 20px;}
+.error-box p { line-height: 1.6; margin-bottom: 15px; font-size: 14px; color: #555; }
+.error-box code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; color: #d81e06; font-family: monospace; }
+.error-box ol { margin-left: 20px; color: #555; font-size: 14px; line-height: 1.8; }
+.missing-list { color: #ff4d4f; font-weight: bold; font-size: 16px; display: block; margin: 10px 0; text-align: center;}
 
-#app { display: none; width: 100%; height: 100%; background: white; }
-.sidebar { width: 280px; background: #f7f7f7; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; }
-.sidebar-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: bold; font-size: 18px; background: #fff;}
-.session-list { flex: 1; overflow-y: auto; }
-.session-item { padding: 15px; border-bottom: 1px solid #e0e0e0; cursor: pointer; transition: background 0.2s; position: relative; }
-.session-item:hover, .session-item.active { background: #e6f7ff; }
-.session-name { font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #333; word-break: break-all; padding-right: 40px;}
-.session-preview { font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 主界面 */
+#app { display: none; width: 100%; height: 100%; background: white; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
 
-.delete-session-btn { position: absolute; right: 10px; top: 15px; font-size: 12px; color: #ff4d4f; cursor: pointer; opacity: 0; transition: opacity 0.2s;}
+/* 侧边栏 */
+.sidebar { width: 300px; background: #f7f9fa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; }
+.sidebar-header { padding: 20px 15px; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 18px; background: #fff; color: #1a1a1a; display: flex; align-items: center; gap: 8px;}
+.session-list { flex: 1; overflow-y: auto; padding: 10px; }
+.session-item { padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 5px; background: #fff; border: 1px solid transparent;}
+.session-item:hover, .session-item.active { background: #e6f7ff; border-color: #91d5ff;}
+.session-name { font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #333; word-break: break-all; padding-right: 40px;}
+.session-preview { font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.delete-session-btn { position: absolute; right: 10px; top: 15px; font-size: 14px; cursor: pointer; opacity: 0; transition: opacity 0.2s; color: #ff4d4f; padding: 4px;}
 .session-item:hover .delete-session-btn { opacity: 1; }
+.session-item.active { background: #e6f7ff; border-left: 4px solid #1890ff; padding-left: 11px;}
 
-.chat-area { flex: 1; display: flex; flex-direction: column; background: #fff; }
-.chat-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: bold; display: flex; justify-content: space-between; align-items: center; word-break: break-all; }
-.messages { flex: 1; overflow-y: auto; padding: 20px; background: #fafafa; display: flex; flex-direction: column; }
+/* 聊天区 */
+.chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative;}
+.chat-header { padding: 20px 25px; border-bottom: 1px solid #e8e8e8; font-weight: 600; display: flex; justify-content: space-between; align-items: center; background: #fff; color: #1a1a1a; z-index: 10;}
+.messages { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; scroll-behavior: smooth;}
 
-.msg { margin-bottom: 15px; display: flex; flex-direction: column; max-width: 75%; }
+/* 气泡 */
+.msg { margin-bottom: 20px; display: flex; flex-direction: column; max-width: 75%; }
 .msg.incoming { align-self: flex-start; }
 .msg.outgoing { align-self: flex-end; align-items: flex-end; }
+.msg-author { font-size: 12px; color: #999; margin-bottom: 6px; padding: 0 4px; word-break: break-all;}
+.msg-bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-wrap: break-word; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);}
+.msg.incoming .msg-bubble { background: #fff; color: #333; border-top-left-radius: 2px;}
+.msg.outgoing .msg-bubble { background: #1890ff; color: #fff; border-top-right-radius: 2px;}
 
-/* 系统消息居中显示 */
-.msg.system { align-self: center; align-items: center; max-width: 90%; margin: 10px 0;}
-.msg-system-text { font-size: 12px; color: #999; background: #f0f0f0; padding: 4px 10px; border-radius: 12px; text-align: center;}
+/* 引用与系统消息 */
+.msg.system { align-self: center; align-items: center; max-width: 90%; margin: 15px 0;}
+.msg-system-text { font-size: 12px; color: #888; background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px; text-align: center; }
+.quote-box { background: rgba(0,0,0,0.04); border-left: 3px solid #ccc; padding: 6px 10px; margin-bottom: 10px; font-size: 12px; color: #666; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.msg.outgoing .quote-box { background: rgba(255,255,255,0.15); border-left-color: #fff; color: rgba(255,255,255,0.85); }
 
-.msg-author { font-size: 12px; color: #888; margin-bottom: 4px; padding-left: 4px; word-break: break-all; }
-.msg.outgoing .msg-author { padding-right: 4px; text-align: right; }
+/* 底部元数据及操作栏 */
+.msg-meta { font-size: 12px; color: #b3b3b3; margin-top: 6px; display: flex; align-items: center; gap: 10px; opacity: 0; transition: opacity 0.2s;}
+.msg:hover .msg-meta { opacity: 1; }
+.msg.outgoing .msg-meta { justify-content: flex-end; }
 
-.msg-bubble { padding: 10px 15px; border-radius: 8px; font-size: 14px; word-wrap: break-word; position: relative; }
-.msg.incoming .msg-bubble { background: #fff; border: 1px solid #e0e0e0; color: #333; }
-.msg.outgoing .msg-bubble { background: #1890ff; color: #fff; }
-.msg-meta { font-size: 12px; color: #aaa; margin-top: 5px; display: flex; gap: 8px;}
+.action-btn { cursor: pointer; padding: 2px 6px; border-radius: 4px; background: #fff; border: 1px solid #e8e8e8; transition: all 0.2s; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);}
+.action-btn:hover { background: #f0f0f0; border-color: #d9d9d9; transform: translateY(-1px);}
+.msg.outgoing .action-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; }
 
-.action-btn { cursor: pointer; text-decoration: underline; }
-.action-btn:hover { opacity: 0.8; }
-.at-btn { color: #1890ff; }
-.reply-btn { color: #1890ff; }
-.recall-btn { color: #ff4d4f; }
-.mute-btn { color: #faad14; }
-.kick-btn { color: #fa8c16; }
-
-.attachment-img-box { margin-top: 5px; max-width: 100%; }
-.chat-img { max-width: 200px; max-height: 200px; border-radius: 6px; cursor: pointer; object-fit: cover; display: block; }
+/* 附件 */
+.attachment-img-box { margin-top: 8px; max-width: 100%; }
+.chat-img { max-width: 220px; max-height: 220px; border-radius: 8px; cursor: pointer; object-fit: cover; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1);}
 .attachment-error { display: inline-block; font-size: 12px; color: #999; background: #f5f5f5; padding: 4px 8px; border-radius: 4px; font-style: italic; margin-top: 5px;}
-.attachment-link { display: inline-block; margin-top: 5px; padding: 6px 12px; background: #f0f2f5; border-radius: 4px; color: #1890ff; text-decoration: none; font-size: 13px; border: 1px solid #e0e0e0;}
-.attachment-link:hover { background: #e6f7ff; }
+.attachment-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 8px 14px; background: #fff; border-radius: 6px; color: #1890ff; text-decoration: none; font-size: 13px; border: 1px solid #e8e8e8; transition: background 0.2s;}
+.attachment-link:hover { background: #f0f7ff; }
+.msg.outgoing .attachment-link { background: rgba(255,255,255,0.15); border-color: transparent; color: #fff;}
 
-.input-area { padding: 15px; border-top: 1px solid #e0e0e0; display: flex; gap: 10px; background: #fff; }
-.input-area textarea { flex: 1; height: 60px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; resize: none; }
-.input-area button { padding: 0 20px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-.reply-tip { font-size: 12px; color: #ff4d4f; padding: 5px 15px; display: none; background: #fffbe6; border-bottom: 1px solid #ffe58f;}
-.reply-tip span { cursor: pointer; color: #1890ff; margin-left: 10px; }
+/* 输入区 */
+.input-area { padding: 15px 25px; background: #fff; border-top: 1px solid #e8e8e8; display: flex; gap: 15px; align-items: flex-end;}
+.input-area textarea { flex: 1; height: 60px; padding: 12px 15px; border: 1px solid #d9d9d9; border-radius: 8px; resize: none; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; background: #fafafa;}
+.input-area textarea:focus { border-color: #1890ff; background: #fff;}
+.input-area button { padding: 0 25px; height: 40px; background: #1890ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s; margin-bottom: 10px;}
+.input-area button:hover { background: #40a9ff; }
+.input-area button:disabled { background: #ccc; cursor: not-allowed; }
+
+.reply-tip { font-size: 13px; padding: 8px 25px; display: none; background: #fffbe6; border-bottom: 1px solid #ffe58f; color: #fa8c16; display: flex; justify-content: space-between;}
+.reply-tip span.cancel { cursor: pointer; color: #1890ff; font-weight: 500;}
 </style>
 </head>
 <body>
-<div id="loading-page"><div class="spinner"></div><div>正在检查系统状态...</div></div>
+<div id="loading-page"><div class="spinner"></div><div>正在连接 QQ MsgBot...</div></div>
 
 <div id="env-error-layer" class="error-layer">
 <div class="error-box">
-<h2>⚠️ 系统未就绪：缺少必需环境变量</h2>
+<h2>⚠️ 系统未就绪：缺少环境变量</h2>
 <p>检测到以下必需的环境变量未配置：</p>
 <span id="missing-envs" class="missing-list"></span>
 <p><b>解决方法：</b></p>
@@ -113,28 +130,31 @@ body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; d
 
 <div id="login-page">
 <div class="login-box">
-<h2 style="text-align: center;">QQ MsgBot</h2>
-<input type="password" id="pwd" placeholder="请输入密码" onkeypress="if(event.key==='Enter') login()">
-<button onclick="login()">登录</button>
+<h2>🤖 QQ MsgBot 控制台</h2>
+<input type="password" id="pwd" placeholder="请输入登录密码" onkeypress="if(event.key==='Enter') login()">
+<button onclick="login()">立即登录</button>
 </div>
 </div>
 
 <div id="app">
 <div class="sidebar">
-<div class="sidebar-header">会话列表</div>
+<div class="sidebar-header">💬 会话列表</div>
 <div class="session-list" id="session-list"></div>
 </div>
 <div class="chat-area">
 <div class="chat-header">
-<span id="chat-title">请选择会话</span>
-<span style="font-size: 12px; color: #888; flex-shrink: 0; margin-left: 10px;">当前模式: <span id="mode-label">主动消息</span></span>
+<span id="chat-title">请选择左侧会话</span>
+<span style="font-size: 12px; color: #888; background: #f0f0f0; padding: 4px 10px; border-radius: 12px;">模式: <span id="mode-label">主动消息</span></span>
 </div>
+
 <div class="reply-tip" id="reply-tip">
-正在回复消息... <span onclick="cancelReply()">取消回复</span>
+<span id="tip-text">正在回复消息...</span> <span class="cancel" onclick="cancelReply()">✖ 取消</span>
 </div>
+
 <div class="messages" id="messages"></div>
+
 <div class="input-area">
-<textarea id="msg-input" placeholder="输入内容，Enter 发送 (Shift+Enter 换行)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+<textarea id="msg-input" placeholder="输入消息内容... (Enter 发送，Shift+Enter 换行)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
 <button onclick="sendMessage()">发送</button>
 </div>
 </div>
@@ -142,10 +162,23 @@ body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; d
 
 <script>
 let token = localStorage.getItem('bot_token');
+let expiresAt = localStorage.getItem('bot_expires_at');
 let currentSession = null;
 let replyToMsg = null;
+let quoteToMsg = null;
 let sessionsData = [];
 let ws = null;
+
+// 检查登录是否过期
+function isTokenValid() {
+  if (!token || !expiresAt) return false;
+  if (Date.now() > parseInt(expiresAt)) {
+    localStorage.removeItem('bot_token');
+    localStorage.removeItem('bot_expires_at');
+    return false;
+  }
+  return true;
+}
 
 function escapeHTML(str) {
   return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
@@ -182,8 +215,12 @@ async function checkSystemStatus() {
     const data = await res.json();
     if (checkFatalError(data)) return;
     document.getElementById('loading-page').style.display = 'none';
-    if (token) showApp();
-    else document.getElementById('login-page').style.display = 'flex';
+
+    if (isTokenValid()) {
+      showApp();
+    } else {
+      document.getElementById('login-page').style.display = 'flex';
+    }
   } catch (e) {
     document.getElementById('loading-page').innerHTML = '<span style="color:red">无法连接到服务器，请刷新重试</span>';
   }
@@ -199,7 +236,11 @@ async function login() {
     if (checkFatalError(data)) return;
     if (res.ok) {
       token = data.token;
+      // 计算过期时间 (毫秒)
+      expiresAt = Date.now() + (data.expiresIn * 1000);
       localStorage.setItem('bot_token', token);
+      localStorage.setItem('bot_expires_at', expiresAt.toString());
+
       document.getElementById('login-page').style.display = 'none';
       showApp();
     } else alert(data.error || '密码错误');
@@ -211,6 +252,14 @@ function showApp() {
   document.getElementById('app').style.display = 'flex';
   loadSessions();
   initWebSocket();
+
+  // 定时检查过期
+  setInterval(() => {
+    if (!isTokenValid()) {
+      alert('登录已过期，请重新登录');
+      location.reload();
+    }
+  }, 60000); // 每分钟检查一次
 }
 
 function initWebSocket() {
@@ -230,19 +279,20 @@ function initWebSocket() {
 }
 
 async function loadSessions() {
+  if (!isTokenValid()) return;
   try {
     const res = await fetch('/api/sessions', { headers: { 'Authorization': 'Bearer ' + token } });
     const data = await res.json();
     if (checkFatalError(data)) return;
-    if (res.status === 401) { localStorage.removeItem('bot_token'); location.reload(); return; }
+    if (res.status === 401) { location.reload(); return; }
     sessionsData = data;
 
     const listEl = document.getElementById('session-list');
     listEl.innerHTML = sessionsData.map(s => \`
     <div class="session-item \${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('\${escapeHTML(s.id)}')">
-    <div class="session-name">\${s.is_group ? '👥 群聊' : '👤 私聊'} - \${escapeHTML(s.id)}</div>
+    <div class="session-name">\${s.is_group ? '👥 群聊' : '👤 私聊'}</div>
     <div class="session-preview">\${escapeHTML(s.last_message || '暂无消息')}</div>
-    <span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession('\${escapeHTML(s.id)}')">删除</span>
+    <span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession('\${escapeHTML(s.id)}')">🗑️</span>
     </div>
     \`).join('');
   } catch (e) {}
@@ -260,7 +310,7 @@ async function deleteSession(id) {
     if (currentSession?.id === id) {
       currentSession = null;
       document.getElementById('messages').innerHTML = '';
-      document.getElementById('chat-title').innerText = '请选择会话';
+      document.getElementById('chat-title').innerText = '请选择左侧会话';
     }
     loadSessions();
   } catch (e) { alert(e.message); }
@@ -269,7 +319,7 @@ async function deleteSession(id) {
 async function selectSession(id) {
   if (currentSession?.id === id) return;
   currentSession = sessionsData.find(s => s.id === id);
-  document.getElementById('chat-title').innerText = (currentSession.is_group ? '群聊' : '私聊') + ' - ' + id;
+  document.getElementById('chat-title').innerText = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' - ' + id;
   cancelReply();
   document.getElementById('messages').dataset.count = -1;
   await loadMessages(id, false);
@@ -277,6 +327,7 @@ async function selectSession(id) {
 }
 
 async function loadMessages(sessionId, isPush) {
+  if (!isTokenValid()) return;
   try {
     const res = await fetch(\`/api/messages?id=\${sessionId}\`, { headers: { 'Authorization': 'Bearer ' + token } });
     const msgs = await res.json();
@@ -288,7 +339,6 @@ async function loadMessages(sessionId, isPush) {
 
     const now = Date.now();
     msgEl.innerHTML = msgs.map(m => {
-      // 👇 渲染系统消息
       if (m.type === 'system') {
         return \`<div class="msg system"><div class="msg-system-text">\${escapeHTML(m.content)}</div></div>\`;
       }
@@ -301,7 +351,18 @@ async function loadMessages(sessionId, isPush) {
       const showRecallBtn = isOut && isWithin2Mins;
       const showGroupOps = !isOut && currentSession.is_group === 1;
 
-      const authorName = isOut ? (currentSession.bot_openid || 'Bot (ID未知)') : (m.author_name || '用户');
+      // 👇 单聊时不显示乱码 bot ID
+      let authorName = '';
+      if (isOut) {
+        authorName = currentSession.is_group === 1 ? (currentSession.bot_openid || 'Bot (ID未知)') : 'Bot';
+      } else {
+        authorName = m.author_name || '用户';
+      }
+
+      let quoteHtml = '';
+      if (m.quote_content) {
+        quoteHtml = \`<div class="quote-box">\${escapeHTML(m.quote_content)}</div>\`;
+      }
 
       let attachmentsHtml = '';
       if (m.attachments) {
@@ -317,7 +378,7 @@ async function loadMessages(sessionId, isPush) {
               onclick="window.open('\${escapeHTML(att.url)}')" />
               </div>\`;
             } else if (att.content_type && (att.content_type.includes('voice') || att.content_type === 'voice')) {
-              attachmentsHtml += \`<div><a href="\${escapeHTML(att.url)}" target="_blank" class="attachment-link">🎤 [语音] 点击播放</a></div>\`;
+              attachmentsHtml += \`<div><a href="\${escapeHTML(att.url)}" target="_blank" class="attachment-link">🎤 语音播放</a></div>\`;
             } else {
               attachmentsHtml += \`<div><span class="attachment-error">[不支持的文件]</span></div>\`;
             }
@@ -325,21 +386,24 @@ async function loadMessages(sessionId, isPush) {
         } catch (e) {}
       }
 
+      // 👇 图标化按钮
       return \`
       <div class="msg \${isOut ? 'outgoing' : 'incoming'}">
       <div class="msg-author">\${escapeHTML(authorName)}</div>
       <div class="msg-bubble">
+      \${quoteHtml}
       \${m.content ? escapeHTML(m.content) : ''}
       \${attachmentsHtml}
       </div>
       <div class="msg-meta">
-      <span>\${new Date(m.timestamp).toLocaleTimeString()}</span>
+      <span>\${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
       \${isOut && m.is_passive ? '<span style="color:#52c41a">(被动)</span>' : ''}
-      \${showRecallBtn ? \`<span class="action-btn recall-btn" onclick="recallMessage('\${escapeHTML(m.msg_id)}')">撤回</span>\` : ''}
-      \${showReplyBtn ? \`<span class="action-btn reply-btn" onclick="startReply('\${escapeHTML(m.msg_id)}', '\${escapeHTML(m.author_name)}')">回复</span>\` : ''}
-      \${showGroupOps ? \`<span class="action-btn at-btn" onclick="insertAtTag('\${escapeHTML(m.author_name)}')">@</span>\` : ''}
-      \${showGroupOps ? \`<span class="action-btn mute-btn" onclick="muteMember('\${escapeHTML(m.author_name)}')">禁言</span>\` : ''}
-      \${showGroupOps ? \`<span class="action-btn kick-btn" onclick="kickMember('\${escapeHTML(m.author_name)}')">踢</span>\` : ''}
+      \${showRecallBtn ? \`<span class="action-btn" title="撤回" onclick="recallMessage('\${escapeHTML(m.msg_id)}')">🗑️</span>\` : ''}
+      \${showReplyBtn ? \`<span class="action-btn" title="回复" onclick="startReply('\${escapeHTML(m.msg_id)}', '\${escapeHTML(m.author_name)}')">↩️</span>\` : ''}
+      <span class="action-btn" title="引用" onclick="startQuote('\${escapeHTML(m.msg_id)}', '\${escapeHTML(m.content)}')">💬</span>
+      \${showGroupOps ? \`<span class="action-btn" title="@他" onclick="insertAtTag('\${escapeHTML(m.author_name)}')">@</span>\` : ''}
+      \${showGroupOps ? \`<span class="action-btn" title="禁言" onclick="muteMember('\${escapeHTML(m.author_name)}')">🔇</span>\` : ''}
+      \${showGroupOps ? \`<span class="action-btn" title="踢出" onclick="kickMember('\${escapeHTML(m.author_name)}')">👢</span>\` : ''}
       </div>
       </div>
       \`;
@@ -350,6 +414,14 @@ async function loadMessages(sessionId, isPush) {
       setTimeout(() => { msgEl.scrollTop = msgEl.scrollHeight; }, 0);
     }
   } catch (e) { console.error(e); }
+}
+
+function startQuote(msgId, content) {
+  quoteToMsg = { msgId, content };
+  document.getElementById('mode-label').innerText = '引用消息';
+  document.getElementById('reply-tip').style.display = 'flex';
+  document.getElementById('tip-text').innerText = '正在引用: ' + (content || '[非文本]').substring(0, 20) + '...';
+  document.getElementById('msg-input').focus();
 }
 
 function insertAtTag(authorId) {
@@ -364,16 +436,17 @@ function insertAtTag(authorId) {
 
 function startReply(msgId, authorName) {
   replyToMsg = msgId;
-  document.getElementById('mode-label').innerText = '被动回复 (5分钟内有效)';
-  document.getElementById('mode-label').style.color = '#ff4d4f';
-  document.getElementById('reply-tip').style.display = 'block';
+  quoteToMsg = null;
+  document.getElementById('mode-label').innerText = '被动回复';
+  document.getElementById('reply-tip').style.display = 'flex';
+  document.getElementById('tip-text').innerText = '正在回复消息...';
   document.getElementById('msg-input').focus();
 }
 
 function cancelReply() {
   replyToMsg = null;
+  quoteToMsg = null;
   document.getElementById('mode-label').innerText = '主动消息';
-  document.getElementById('mode-label').style.color = '#888';
   document.getElementById('reply-tip').style.display = 'none';
 }
 
@@ -427,6 +500,8 @@ async function kickMember(memberOpenid) {
 
 async function sendMessage() {
   if (!currentSession) return alert('请先选择会话');
+  if (!isTokenValid()) return alert('登录已过期');
+
   const content = document.getElementById('msg-input').value.trim();
   if (!content) return;
 
@@ -434,6 +509,10 @@ async function sendMessage() {
   if (replyToMsg) {
     body.msgId = replyToMsg;
     body.msgSeq = Math.floor(Math.random() * 100) + 1;
+  }
+  if (quoteToMsg) {
+    body.quoteMsgId = quoteToMsg.msgId;
+    body.quoteContent = quoteToMsg.content;
   }
 
   document.getElementById('msg-input').value = '';
