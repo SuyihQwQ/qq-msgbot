@@ -24,10 +24,7 @@ function parseMessageContent(d) {
   let contentText = d.content || '';
   contentText = contentText.replace(/<faceType=[^>]+>/gi, '[表情]');
   contentText = contentText.replace(/<face[^>]+>/gi, '[表情]');
-
-  // 👇 改动：@提及去掉截断，显示完整 ID
   contentText = contentText.replace(/<@!?([A-Za-z0-9]+)>/gi, (match, openid) => `@${openid}`);
-
   return contentText.trim();
 }
 
@@ -167,8 +164,6 @@ async function processIncomingMessage(payload, env, ctx) {
     const isGroup = payload.t.startsWith('GROUP');
     const sessionId = isGroup ? d.group_openid : d.author?.user_openid;
     const authorOpenid = isGroup ? d.author?.member_openid : d.author?.user_openid;
-
-    // 👇 改动：显示完整发送者 ID
     const authorName = authorOpenid ? authorOpenid : '未知用户';
 
     if (!sessionId) return;
@@ -188,7 +183,6 @@ async function processIncomingMessage(payload, env, ctx) {
 
     const now = Date.now();
 
-    // 更新或插入会话。注意这里 name 字段存的是完整群 ID 或用户 ID
     await env.DB.prepare(
       `INSERT INTO sessions (id, is_group, name, last_active, last_message) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_active = excluded.last_active, last_message = excluded.last_message`
     ).bind(sessionId, isGroup ? 1 : 0, isGroup ? `群聊 (${sessionId})` : `用户 (${authorName})`, now, previewContent).run();
@@ -225,10 +219,7 @@ async function handleApi(request, env, path) {
       const fileId = path.split('/').pop();
       const fileBuffer = await env.BOT_KV.get(`file:${fileId}`, 'arrayBuffer');
       if (!fileBuffer) return new Response('File Not Found or Expired', { status: 404 });
-
-      return new Response(fileBuffer, {
-        headers: { 'Cache-Control': 'public, max-age=604800' }
-      });
+      return new Response(fileBuffer, { headers: { 'Cache-Control': 'public, max-age=604800' } });
     }
 
     if (path === '/api/login' && request.method === 'POST') {
@@ -260,9 +251,12 @@ async function handleApi(request, env, path) {
       const res = await sendQQMessage(env, sessionId, isGroup, content, msgId, msgSeq || 1);
 
       const now = Date.now();
+
+      // 👇 核心改动：把机器人自己的标识存入 author_name
       await env.DB.prepare(
-        `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, is_passive) VALUES (?, 'outgoing', 'bot', ?, ?, ?, ?)`
-      ).bind(sessionId, content, res.id, now, msgId ? 1 : 0).run();
+        `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, is_passive, author_name) VALUES (?, 'outgoing', 'bot', ?, ?, ?, ?, ?)`
+      ).bind(sessionId, content, res.id, now, msgId ? 1 : 0, `Bot (${env.QQ_APP_ID})`).run();
+
       await env.DB.prepare(`UPDATE sessions SET last_active = ? WHERE id = ?`).bind(now, sessionId).run();
 
       const id = env.CHAT_ROOM.idFromName('global');

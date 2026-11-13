@@ -33,10 +33,9 @@ body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; d
 .session-item { padding: 15px; border-bottom: 1px solid #e0e0e0; cursor: pointer; transition: background 0.2s; }
 .session-item:hover, .session-item.active { background: #e6f7ff; }
 
-/* 👇 新增 word-break，让长 ID 自动换行 */
 .session-name { font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #333; word-break: break-all; }
-
 .session-preview { font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .chat-area { flex: 1; display: flex; flex-direction: column; background: #fff; }
 .chat-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: bold; display: flex; justify-content: space-between; align-items: center; word-break: break-all; }
 .messages { flex: 1; overflow-y: auto; padding: 20px; background: #fafafa; display: flex; flex-direction: column; }
@@ -45,8 +44,9 @@ body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; d
 .msg.incoming { align-self: flex-start; }
 .msg.outgoing { align-self: flex-end; align-items: flex-end; }
 
+/* 👇 机器人的名字也会显示了 */
 .msg-author { font-size: 12px; color: #888; margin-bottom: 4px; padding-left: 4px; word-break: break-all;}
-.msg.outgoing .msg-author { display: none; }
+.msg.outgoing .msg-author { color: #1890ff; text-align: right; padding-right: 4px; padding-left: 0; }
 
 .msg-bubble { padding: 10px 15px; border-radius: 8px; font-size: 14px; word-wrap: break-word; position: relative; }
 .msg.incoming .msg-bubble { background: #fff; border: 1px solid #e0e0e0; color: #333; }
@@ -219,7 +219,6 @@ async function loadSessions() {
     sessionsData = data;
 
     const listEl = document.getElementById('session-list');
-    // 👇 改动：移除 s.id.substring(0,8) 的截断，直接显示完整 s.id
     listEl.innerHTML = sessionsData.map(s => \`
     <div class="session-item \${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('\${escapeHTML(s.id)}')">
     <div class="session-name">\${s.is_group ? '👥 群聊' : '👤 私聊'} - \${escapeHTML(s.id)}</div>
@@ -232,7 +231,6 @@ async function loadSessions() {
 async function selectSession(id) {
   if (currentSession?.id === id) return;
   currentSession = sessionsData.find(s => s.id === id);
-  // 👇 改动：移除 id.substring(0,12) 的截断，直接显示完整 id
   document.getElementById('chat-title').innerText = (currentSession.is_group ? '群聊' : '私聊') + ' - ' + id;
   cancelReply();
   document.getElementById('messages').dataset.count = -1;
@@ -248,6 +246,10 @@ async function loadMessages(sessionId, isPush) {
 
     const msgEl = document.getElementById('messages');
     if (msgEl.dataset.count == msgs.length) return;
+
+    // 👇 记录更新前，滚动条是否已经在底部附近（距离底部小于 150px）
+    const isScrolledToBottom = msgEl.scrollHeight - msgEl.scrollTop - msgEl.clientHeight < 150;
+
     msgEl.dataset.count = msgs.length;
 
     const now = Date.now();
@@ -280,7 +282,7 @@ async function loadMessages(sessionId, isPush) {
 
       return \`
       <div class="msg \${isOut ? 'outgoing' : 'incoming'}">
-      \${!isOut ? \`<div class="msg-author">\${escapeHTML(m.author_name || '用户')}</div>\` : ''}
+      <div class="msg-author">\${escapeHTML(m.author_name || (isOut ? 'Bot' : '用户'))}</div>
       <div class="msg-bubble">
       \${m.content ? escapeHTML(m.content) : ''}
       \${attachmentsHtml}
@@ -294,7 +296,10 @@ async function loadMessages(sessionId, isPush) {
       \`;
     }).join('');
 
-    if (!isPush) msgEl.scrollTop = msgEl.scrollHeight;
+    // 👇 如果是首次渲染(!isPush)，或者发送了消息，或者之前就在底部，则自动滚动到底部
+    if (!isPush || isScrolledToBottom) {
+      msgEl.scrollTop = msgEl.scrollHeight;
+    }
   } catch (e) {}
 }
 
