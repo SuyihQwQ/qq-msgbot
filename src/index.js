@@ -74,6 +74,7 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   return data;
 }
 
+// 👇 核心修复：使用异步签名，完美适配 Workers
 async function handleValidation(plainToken, eventTs, env) {
   const seed = buildEd25519Seed(env.QQ_CLIENT_SECRET);
   const msg = new TextEncoder().encode(eventTs + plainToken);
@@ -122,7 +123,7 @@ async function processIncomingMessage(payload, env) {
 // ================= API 路由 =================
 async function handleApi(request, env, path) {
   try {
-    // 👇 健康检查接口，无需鉴权，用于前端初始化检查 👇
+    // 健康检查接口，无需鉴权，用于前端初始化检查
     if (path === '/api/health' && request.method === 'GET') {
       const missingEnvs = [];
       if (!env.QQ_APP_ID) missingEnvs.push('QQ_APP_ID');
@@ -138,7 +139,6 @@ async function handleApi(request, env, path) {
       return Response.json({ ok: true });
     }
 
-    // 正常鉴权
     if (path === '/api/login' && request.method === 'POST') {
       const { password } = await request.json();
       if (password === env.WEB_PASSWORD) return Response.json({ token: env.WEB_PASSWORD });

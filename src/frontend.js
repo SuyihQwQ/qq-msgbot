@@ -9,7 +9,6 @@ export const FRONTEND_HTML = `
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; display: flex; }
     
-    /* Loading 页 */
     #loading-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; font-size: 16px; color: #666; flex-direction: column; gap: 10px;}
     .spinner { width: 30px; height: 30px; border: 3px solid #ccc; border-top-color: #1890ff; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -19,7 +18,6 @@ export const FRONTEND_HTML = `
     .login-box input { width: 100%; padding: 10px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; }
     .login-box button { width: 100%; padding: 10px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; }
     
-    /* 通用错误遮罩层 */
     .error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; text-align: left; }
     .error-box { background: #1e1e1e; padding: 40px; border-radius: 8px; border: 1px solid #ff4d4f; max-width: 600px; }
     .error-box h2 { color: #ff4d4f; margin-bottom: 20px; text-align: center;}
@@ -28,7 +26,6 @@ export const FRONTEND_HTML = `
     .error-box ol { margin-left: 20px; color: #ccc; font-size: 14px; line-height: 1.8; }
     .missing-list { color: #ff4d4f; font-weight: bold; font-size: 16px; display: block; margin: 10px 0; }
 
-    /* 主界面 */
     #app { display: none; width: 100%; height: 100%; background: white; }
     .sidebar { width: 280px; background: #f7f7f7; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; }
     .sidebar-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: bold; font-size: 18px; background: #fff;}
@@ -56,13 +53,11 @@ export const FRONTEND_HTML = `
   </style>
 </head>
 <body>
-  <!-- 1. Loading 页 -->
   <div id="loading-page">
     <div class="spinner"></div>
     <div>正在检查系统状态...</div>
   </div>
 
-  <!-- 2. 环境变量缺失遮罩层 -->
   <div id="env-error-layer" class="error-layer">
     <div class="error-box">
       <h2>⚠️ 系统未就绪：缺少必需环境变量</h2>
@@ -78,7 +73,6 @@ export const FRONTEND_HTML = `
     </div>
   </div>
 
-  <!-- 3. KV 未绑定遮罩层 -->
   <div id="kv-error-layer" class="error-layer">
     <div class="error-box">
       <h2>⚠️ 系统未就绪：缺少 KV 数据库</h2>
@@ -94,7 +88,6 @@ export const FRONTEND_HTML = `
     </div>
   </div>
 
-  <!-- 4. 登录页 -->
   <div id="login-page">
     <div class="login-box">
       <h2 style="text-align: center;">QQ MsgBot</h2>
@@ -103,7 +96,6 @@ export const FRONTEND_HTML = `
     </div>
   </div>
 
-  <!-- 5. 主界面 -->
   <div id="app">
     <div class="sidebar">
       <div class="sidebar-header">会话列表</div>
@@ -158,7 +150,6 @@ export const FRONTEND_HTML = `
       return false;
     }
 
-    // 👇 启动时优先执行健康检查 👇
     async function checkSystemStatus() {
       try {
         const res = await fetch('/api/health');
