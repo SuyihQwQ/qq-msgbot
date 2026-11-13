@@ -4,7 +4,7 @@
 
 ## 🚀 一键部署
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/你的用户名/qq-msgbot)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/SuyihQwQ/qq-msgbot)
 
 > 点击上方按钮，Cloudflare 将自动完成仓库拉取、D1 数据库创建、Durable Objects 配置及表结构初始化。
 > 
