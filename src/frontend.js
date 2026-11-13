@@ -30,10 +30,14 @@ body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; d
 .sidebar { width: 280px; background: #f7f7f7; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; }
 .sidebar-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: bold; font-size: 18px; background: #fff;}
 .session-list { flex: 1; overflow-y: auto; }
-.session-item { padding: 15px; border-bottom: 1px solid #e0e0e0; cursor: pointer; transition: background 0.2s; }
+.session-item { padding: 15px; border-bottom: 1px solid #e0e0e0; cursor: pointer; transition: background 0.2s; position: relative; }
 .session-item:hover, .session-item.active { background: #e6f7ff; }
-.session-name { font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #333; word-break: break-all; }
+.session-name { font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #333; word-break: break-all; padding-right: 40px;}
 .session-preview { font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.delete-session-btn { position: absolute; right: 10px; top: 15px; font-size: 12px; color: #ff4d4f; cursor: pointer; opacity: 0; transition: opacity 0.2s;}
+.session-item:hover .delete-session-btn { opacity: 1; }
+
 .chat-area { flex: 1; display: flex; flex-direction: column; background: #fff; }
 .chat-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: bold; display: flex; justify-content: space-between; align-items: center; word-break: break-all; }
 .messages { flex: 1; overflow-y: auto; padding: 20px; background: #fafafa; display: flex; flex-direction: column; }
@@ -41,16 +45,23 @@ body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; d
 .msg { margin-bottom: 15px; display: flex; flex-direction: column; max-width: 75%; }
 .msg.incoming { align-self: flex-start; }
 .msg.outgoing { align-self: flex-end; align-items: flex-end; }
-.msg-author { font-size: 12px; color: #888; margin-bottom: 4px; padding-left: 4px; word-break: break-all;}
-.msg.outgoing .msg-author { display: none; }
+
+/* 👇 修改：允许显示 bot 自己的名字并靠右 */
+.msg-author { font-size: 12px; color: #888; margin-bottom: 4px; padding-left: 4px; word-break: break-all; }
+.msg.outgoing .msg-author { padding-right: 4px; text-align: right; }
+
 .msg-bubble { padding: 10px 15px; border-radius: 8px; font-size: 14px; word-wrap: break-word; position: relative; }
 .msg.incoming .msg-bubble { background: #fff; border: 1px solid #e0e0e0; color: #333; }
 .msg.outgoing .msg-bubble { background: #1890ff; color: #fff; }
-.msg-meta { font-size: 12px; color: #aaa; margin-top: 5px; }
+.msg-meta { font-size: 12px; color: #aaa; margin-top: 5px; display: flex; gap: 8px;}
 
-.reply-btn { font-size: 12px; color: #1890ff; cursor: pointer; margin-left: 10px; text-decoration: underline;}
-.recall-btn { font-size: 12px; color: #ff4d4f; cursor: pointer; margin-left: 10px; text-decoration: underline;}
-.kick-btn { font-size: 12px; color: #fa8c16; cursor: pointer; margin-left: 8px; text-decoration: underline;}
+.action-btn { cursor: pointer; text-decoration: underline; }
+.action-btn:hover { opacity: 0.8; }
+.at-btn { color: #1890ff; }
+.reply-btn { color: #1890ff; }
+.recall-btn { color: #ff4d4f; }
+.mute-btn { color: #faad14; }
+.kick-btn { color: #fa8c16; }
 
 .attachment-img-box { margin-top: 5px; max-width: 100%; }
 .chat-img { max-width: 200px; max-height: 200px; border-radius: 6px; cursor: pointer; object-fit: cover; display: block; }
@@ -137,7 +148,6 @@ function escapeHTML(str) {
   return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
 }
 
-// 👇 安全的图片加载失败处理
 function handleImgError(img) {
   const span = document.createElement('span');
   span.className = 'attachment-error';
@@ -229,9 +239,28 @@ async function loadSessions() {
     <div class="session-item \${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('\${escapeHTML(s.id)}')">
     <div class="session-name">\${s.is_group ? '👥 群聊' : '👤 私聊'} - \${escapeHTML(s.id)}</div>
     <div class="session-preview">\${escapeHTML(s.last_message || '暂无消息')}</div>
+    <span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession('\${escapeHTML(s.id)}')">删除</span>
     </div>
     \`).join('');
   } catch (e) {}
+}
+
+async function deleteSession(id) {
+  if (!confirm('确定要删除该会话及其所有本地消息记录吗？')) return;
+  try {
+    const res = await fetch('/api/delete_session', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: id })
+    });
+    if (!res.ok) throw new Error('删除失败');
+    if (currentSession?.id === id) {
+      currentSession = null;
+      document.getElementById('messages').innerHTML = '';
+      document.getElementById('chat-title').innerText = '请选择会话';
+    }
+    loadSessions();
+  } catch (e) { alert(e.message); }
 }
 
 async function selectSession(id) {
@@ -259,9 +288,13 @@ async function loadMessages(sessionId, isPush) {
       const isOut = m.type === 'outgoing';
       const isWithin2Mins = (now - m.timestamp) < 2 * 60 * 1000;
       const isWithin5Mins = (now - m.timestamp) < 5 * 60 * 1000;
+
       const showReplyBtn = !isOut && isWithin5Mins;
       const showRecallBtn = isOut && isWithin2Mins;
-      const showKickBtn = !isOut && currentSession.is_group === 1;
+      const showGroupOps = !isOut && currentSession.is_group === 1;
+
+      // 👇 显示机器人的真实 ID
+      const authorName = isOut ? (currentSession.bot_openid || 'Bot (ID未知)') : (m.author_name || '用户');
 
       let attachmentsHtml = '';
       if (m.attachments) {
@@ -287,19 +320,19 @@ async function loadMessages(sessionId, isPush) {
 
       return \`
       <div class="msg \${isOut ? 'outgoing' : 'incoming'}">
-      <div class="msg-author">
-      \${!isOut ? escapeHTML(m.author_name || '用户') : ''}
-      \${showKickBtn ? \`<span class="kick-btn" onclick="kickMember('\${escapeHTML(m.author_name)}')">踢</span>\` : ''}
-      </div>
+      <div class="msg-author">\${escapeHTML(authorName)}</div>
       <div class="msg-bubble">
       \${m.content ? escapeHTML(m.content) : ''}
       \${attachmentsHtml}
       </div>
       <div class="msg-meta">
-      \${new Date(m.timestamp).toLocaleTimeString()}
-      \${isOut && m.is_passive ? '<span style="color:#52c41a">(被动回复)</span>' : ''}
-      \${showRecallBtn ? \`<span class="recall-btn" onclick="recallMessage('\${escapeHTML(m.msg_id)}')">撤回</span>\` : ''}
-      \${showReplyBtn ? \`<span class="reply-btn" onclick="startReply('\${escapeHTML(m.msg_id)}', '\${escapeHTML(m.author_name)}')">回复此消息(被动)</span>\` : ''}
+      <span>\${new Date(m.timestamp).toLocaleTimeString()}</span>
+      \${isOut && m.is_passive ? '<span style="color:#52c41a">(被动)</span>' : ''}
+      \${showRecallBtn ? \`<span class="action-btn recall-btn" onclick="recallMessage('\${escapeHTML(m.msg_id)}')">撤回</span>\` : ''}
+      \${showReplyBtn ? \`<span class="action-btn reply-btn" onclick="startReply('\${escapeHTML(m.msg_id)}', '\${escapeHTML(m.author_name)}')">回复</span>\` : ''}
+      \${showGroupOps ? \`<span class="action-btn at-btn" onclick="insertAtTag('\${escapeHTML(m.author_name)}')">@</span>\` : ''}
+      \${showGroupOps ? \`<span class="action-btn mute-btn" onclick="muteMember('\${escapeHTML(m.author_name)}')">禁言</span>\` : ''}
+      \${showGroupOps ? \`<span class="action-btn kick-btn" onclick="kickMember('\${escapeHTML(m.author_name)}')">踢</span>\` : ''}
       </div>
       </div>
       \`;
@@ -312,19 +345,21 @@ async function loadMessages(sessionId, isPush) {
   } catch (e) { console.error(e); }
 }
 
+function insertAtTag(authorId) {
+  if (!authorId || authorId === '未知用户') return;
+  const inputEl = document.getElementById('msg-input');
+  const tag = \`<qqbot-at-user id="\${authorId}" /> \`;
+  if (!inputEl.value.includes(tag)) {
+    inputEl.value += tag;
+  }
+  inputEl.focus();
+}
+
 function startReply(msgId, authorName) {
   replyToMsg = msgId;
   document.getElementById('mode-label').innerText = '被动回复 (5分钟内有效)';
   document.getElementById('mode-label').style.color = '#ff4d4f';
   document.getElementById('reply-tip').style.display = 'block';
-
-  if (authorName && authorName !== '未知用户' && !authorName.includes('Bot')) {
-    const atTag = \`<qqbot-at-user id="\${authorName}" /> \`;
-    const inputEl = document.getElementById('msg-input');
-    if (!inputEl.value.includes(atTag)) {
-      inputEl.value = atTag + inputEl.value;
-    }
-  }
   document.getElementById('msg-input').focus();
 }
 
@@ -347,6 +382,24 @@ async function recallMessage(msgId) {
     if (!res.ok) throw new Error(data.error);
     document.getElementById('messages').dataset.count = -1;
     loadMessages(currentSession.id, false);
+  } catch (e) { alert(e.message); }
+}
+
+async function muteMember(memberOpenid) {
+  const mins = prompt(\`请输入要禁言用户 \${memberOpenid} 的分钟数：\`, '10');
+  if (mins === null) return;
+  const durationMins = parseInt(mins, 10);
+  if (isNaN(durationMins) || durationMins <= 0) return alert('请输入有效的分钟数');
+
+  try {
+    const res = await fetch('/api/mute', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid, durationMins: durationMins })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    alert(\`禁言成功，时长 \${durationMins} 分钟\`);
   } catch (e) { alert(e.message); }
 }
 

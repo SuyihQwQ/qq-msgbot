@@ -19,7 +19,6 @@ function hexToBytes(hex) {
   for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
   return bytes;
 }
-
 function parseMessageContent(d) {
   let contentText = d.content || '';
   contentText = contentText.replace(/<faceType=[^>]+>/gi, '[表情]');
@@ -41,10 +40,12 @@ async function ensureTables(env) {
   if (dbInitialized) return;
   try {
     await env.DB.batch([
-      env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, is_group INTEGER NOT NULL, name TEXT, last_active INTEGER, last_message TEXT)`),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, is_group INTEGER NOT NULL, name TEXT, last_active INTEGER, last_message TEXT, bot_openid TEXT)`),
                        env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, type TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, attachments TEXT, msg_id TEXT, timestamp INTEGER, is_passive INTEGER DEFAULT 0, author_name TEXT)`),
                        env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)`)
     ]);
+    // 兼容旧表，自动补充字段
+    try { await env.DB.exec(`ALTER TABLE sessions ADD COLUMN bot_openid TEXT`); } catch (e) {}
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN attachments TEXT`); } catch (e) {}
     dbInitialized = true;
   } catch (e) {
@@ -52,7 +53,7 @@ async function ensureTables(env) {
   }
 }
 
-// ================= 👇 核心修复：必须使用 export 导出 Durable Object =================
+// ================= Durable Object =================
 export class ChatRoom extends DurableObject {
   async fetch(request) {
     const upgradeHeader = request.headers.get('Upgrade');
@@ -90,7 +91,6 @@ async function processAttachments(env, attachments) {
         await env.BOT_KV.put(`file:${fileId}`, buffer, { expirationTtl: 604800 });
         processed.push({ ...att, url: `/api/file/${fileId}` });
       } catch (err) {
-        console.error('附件转存失败:', err.message);
         processed.push({ ...att, url: '', error: '转存失败或链接已过期' });
       }
     } else {
@@ -122,12 +122,22 @@ async function getAccessToken(env) {
   try { return await tokenPromise; } catch (e) { tokenPromise = null; throw e; }
 }
 
+// 👇 获取机器人自身 ID
+async function getBotState(env, groupOpenid) {
+  const token = await getAccessToken(env);
+  const res = await fetch(`${QQ_SEND_BASE}/groups/${groupOpenid}/bot_state`, {
+    headers: { Authorization: `QQBot ${token}` }
+  });
+  const data = await res.json();
+  if (data.code) throw new Error(`bot_state 失败: ${data.code}`);
+  return data;
+}
+
 async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgSeq = 1) {
   const token = await getAccessToken(env);
   const url = isGroup ? `${QQ_SEND_BASE}/groups/${targetId}/messages` : `${QQ_SEND_BASE}/users/${targetId}/messages`;
   const body = {};
   if (msgId) { body.msg_id = msgId; body.msg_seq = msgSeq; }
-
   if (content.includes('<qqbot-at-user') || content.includes('<qqbot-at-everyone')) {
     body.msg_type = 2;
     body.markdown = { content: content };
@@ -136,7 +146,6 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
     body.msg_type = 0;
     body.content = content;
   }
-
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `QQBot ${token}` },
@@ -149,13 +158,8 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
 
 async function recallQQMessage(env, targetId, isGroup, messageId) {
   const token = await getAccessToken(env);
-  const url = isGroup
-  ? `${QQ_SEND_BASE}/groups/${targetId}/messages/${messageId}`
-  : `${QQ_SEND_BASE}/users/${targetId}/messages/${messageId}`;
-  const res = await fetch(url, {
-    method: 'DELETE',
-    headers: { Authorization: `QQBot ${token}` },
-  });
+  const url = isGroup ? `${QQ_SEND_BASE}/groups/${targetId}/messages/${messageId}` : `${QQ_SEND_BASE}/users/${targetId}/messages/${messageId}`;
+  const res = await fetch(url, { method: 'DELETE', headers: { Authorization: `QQBot ${token}` } });
   if (!res.ok) {
     const error = await res.json();
     throw new Error(`撤回失败: ${error.code} ${error.message || ''}`);
@@ -165,26 +169,33 @@ async function recallQQMessage(env, targetId, isGroup, messageId) {
 
 async function kickGroupMember(env, groupOpenid, memberOpenid, addToBlacklist = false) {
   const token = await getAccessToken(env);
-  const url = `${QQ_SEND_BASE}/groups/${groupOpenid}/batch_remove_members`;
-  const body = {
-    member_openids: [memberOpenid],
-    add_to_member_blacklist: addToBlacklist
-  };
-  const res = await fetch(url, {
+  const res = await fetch(`${QQ_SEND_BASE}/groups/${groupOpenid}/batch_remove_members`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `QQBot ${token}` },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ member_openids: [memberOpenid], add_to_member_blacklist: addToBlacklist }),
   });
   const data = await res.json();
   if (data.code) throw new Error(`踢人失败: ${data.code} ${data.message || ''}`);
   return data;
 }
 
+async function muteGroupMember(env, groupOpenid, memberOpenid, durationMins) {
+  const token = await getAccessToken(env);
+  const muteExpireAt = new Date(Date.now() + durationMins * 60 * 1000).toISOString().replace('Z', '+00:00');
+  const res = await fetch(`${QQ_SEND_BASE}/groups/${groupOpenid}/restrict_chat_setting`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `QQBot ${token}` },
+    body: JSON.stringify({ members: [{ op: "add", member_openid: memberOpenid, mute_expire_at: muteExpireAt }] }),
+  });
+  const data = await res.json();
+  if (data.code) throw new Error(`禁言失败: ${data.code} ${data.message || ''}`);
+  return data;
+}
+
 async function handleValidation(plainToken, eventTs, env) {
   const privateKey = makePrivateKey(env.QQ_CLIENT_SECRET);
   const msg = Buffer.from(eventTs + plainToken, 'utf-8');
-  const signature = sign(null, msg, privateKey);
-  return Response.json({ plain_token: plainToken, signature: signature.toString('hex') });
+  return Response.json({ plain_token: plainToken, signature: sign(null, msg, privateKey).toString('hex') });
 }
 
 async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
@@ -194,7 +205,20 @@ async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
   return verify(null, msg, publicKey, Buffer.from(signatureHex, 'hex'));
 }
 
-// ================= 异步处理 QQ 消息 =================
+// ================= 异步处理 QQ 事件 =================
+async function processGroupAddRobot(payload, env) {
+  try {
+    const groupOpenid = payload.d?.group_openid;
+    if (!groupOpenid) return;
+    const botState = await getBotState(env, groupOpenid);
+    await env.DB.prepare(
+      `INSERT INTO sessions (id, is_group, name, last_active, last_message, bot_openid) VALUES (?, 1, ?, ?, '[机器人已入群]', ?) ON CONFLICT(id) DO UPDATE SET bot_openid = excluded.bot_openid`
+    ).bind(groupOpenid, `群聊 (${groupOpenid})`, Date.now(), botState.member_openid).run();
+  } catch (e) {
+    console.error('【GROUP_ADD_ROBOT 失败】:', e.message);
+  }
+}
+
 async function processIncomingMessage(payload, env, ctx) {
   try {
     await ensureTables(env);
@@ -204,6 +228,15 @@ async function processIncomingMessage(payload, env, ctx) {
     const authorOpenid = isGroup ? d.author?.member_openid : d.author?.user_openid;
     const authorName = authorOpenid ? authorOpenid : '未知用户';
     if (!sessionId) return;
+
+    // 惰性补全机器人 ID
+    let session = await env.DB.prepare(`SELECT * FROM sessions WHERE id = ?`).bind(sessionId).first();
+    if (isGroup && session && !session.bot_openid) {
+      try {
+        const bs = await getBotState(env, sessionId);
+        await env.DB.prepare(`UPDATE sessions SET bot_openid = ? WHERE id = ?`).bind(bs.member_openid, sessionId).run();
+      } catch (e) {}
+    }
 
     const safeContent = parseMessageContent(d);
     const attachmentsData = await processAttachments(env, d.attachments);
@@ -231,11 +264,25 @@ async function processIncomingMessage(payload, env, ctx) {
     }
 
     const id = env.CHAT_ROOM.idFromName('global');
-    const stub = env.CHAT_ROOM.get(id);
-    ctx.waitUntil(stub.broadcast({ type: 'update', sessionId }));
+    ctx.waitUntil(env.CHAT_ROOM.get(id).broadcast({ type: 'update', sessionId }));
   } catch (e) {
     console.error('【后台处理】消息写入失败:', e.message);
   }
+}
+
+async function processRecallEvent(payload, env) {
+  try {
+    const d = payload.d || {};
+    const messageId = d.message_id || d.msg_id || d.id;
+    if (!messageId) return;
+    await ensureTables(env);
+    await env.DB.prepare(`DELETE FROM messages WHERE msg_id = ?`).bind(messageId).run();
+    const sessionId = d.group_openid || d.session_id;
+    if (sessionId) {
+      const id = env.CHAT_ROOM.idFromName('global');
+      await env.CHAT_ROOM.get(id).broadcast({ type: 'update', sessionId });
+    }
+  } catch (e) {}
 }
 
 // ================= API 路由 =================
@@ -254,7 +301,7 @@ async function handleApi(request, env, path) {
     if (path.startsWith('/api/file/') && request.method === 'GET') {
       const fileId = path.split('/').pop();
       const fileBuffer = await env.BOT_KV.get(`file:${fileId}`, 'arrayBuffer');
-      if (!fileBuffer) return new Response('File Not Found or Expired', { status: 404 });
+      if (!fileBuffer) return new Response('File Not Found', { status: 404 });
       return new Response(fileBuffer, { headers: { 'Cache-Control': 'public, max-age=604800' } });
     }
 
@@ -314,9 +361,23 @@ async function handleApi(request, env, path) {
       return Response.json({ ok: true });
     }
 
+    if (path === '/api/mute' && request.method === 'POST') {
+      const { groupOpenid, memberOpenid, durationMins } = await request.json();
+      if (!groupOpenid || !memberOpenid || !durationMins) return Response.json({ error: '参数缺失' }, { status: 400 });
+      await muteGroupMember(env, groupOpenid, memberOpenid, durationMins);
+      return Response.json({ ok: true });
+    }
+
+    if (path === '/api/delete_session' && request.method === 'POST') {
+      const { sessionId } = await request.json();
+      if (!sessionId) return Response.json({ error: '参数缺失' }, { status: 400 });
+      await env.DB.prepare(`DELETE FROM messages WHERE session_id = ?`).bind(sessionId).run();
+      await env.DB.prepare(`DELETE FROM sessions WHERE id = ?`).bind(sessionId).run();
+      return Response.json({ ok: true });
+    }
+
     return Response.json({ error: 'Not Found' }, { status: 404 });
   } catch (err) {
-    console.error('【API 异常】', path, err.message, err.stack);
     return Response.json({ error: err.message || 'Server Error' }, { status: 500 });
   }
 }
@@ -335,36 +396,30 @@ async function handleQQWebhook(request, env, ctx) {
       if (!valid) console.warn('验签未通过');
     }
 
-    if (['GROUP_AT_MESSAGE_CREATE', 'GROUP_MESSAGE_CREATE', 'C2C_MESSAGE_CREATE'].includes(payload.t)) {
+    if (payload.t === 'GROUP_ADD_ROBOT') {
+      ctx.waitUntil(processGroupAddRobot(payload, env));
+    } else if (['GROUP_AT_MESSAGE_CREATE', 'GROUP_MESSAGE_CREATE', 'C2C_MESSAGE_CREATE'].includes(payload.t)) {
       ctx.waitUntil(processIncomingMessage(payload, env, ctx));
+    } else if (['GROUP_RECALL', 'group_recall'].includes(payload.t)) {
+      ctx.waitUntil(processRecallEvent(payload, env));
     }
     return Response.json({ ok: true });
   } catch (e) {
-    console.error('【Webhook 异常】', e.message, e.stack);
     return new Response('Bad Request', { status: 400 });
   }
 }
 
-// ================= 路由入口 (必须是 ES Module 格式) =================
+// ================= 路由入口 =================
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-
-    if (url.pathname === '/') {
-      if (!FRONTEND_HTML) {
-        return new Response('前端代码加载失败，请检查 src/frontend.js 是否正确导出。', { status: 500 });
-      }
-      return new Response(FRONTEND_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-    }
-
+    if (url.pathname === '/') return new Response(FRONTEND_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     if (url.pathname === '/qq-webhook') return handleQQWebhook(request, env, ctx);
     if (url.pathname.startsWith('/api/')) return handleApi(request, env, url.pathname);
     if (url.pathname === '/ws') {
       const id = env.CHAT_ROOM.idFromName('global');
-      const stub = env.CHAT_ROOM.get(id);
-      return stub.fetch(request);
+      return env.CHAT_ROOM.get(id).fetch(request);
     }
-
     return new Response('Not Found', { status: 404 });
   },
 };
