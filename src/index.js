@@ -1,5 +1,6 @@
 import { FRONTEND_HTML } from './frontend.js';
 import { createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
+import { DurableObject } from 'cloudflare:workers';
 
 const QQ_TOKEN_URL = 'https://api.bot.qq.com/app/getAppAccessToken';
 const QQ_SEND_BASE = 'https://api.sgroup.qq.com/v2';
@@ -17,9 +18,6 @@ function hexToBytes(hex) {
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
   return bytes;
-}
-function bytesToHex(bytes) {
-  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 }
 function parseMessageContent(d) {
   let contentText = d.content || '';
@@ -42,6 +40,27 @@ function makePrivateKey(secret) {
   return createPrivateKey({ key: pkcs8, format: 'der', type: 'pkcs8' });
 }
 
+// ================= 👇 Durable Object =================
+export class ChatRoom extends DurableObject {
+  async fetch(request) {
+    const upgradeHeader = request.headers.get('Upgrade');
+    if (!upgradeHeader || upgradeHeader !== 'websocket') {
+      return new Response('Expected WebSocket', { status: 426 });
+    }
+    const webSocketPair = new WebSocketPair();
+    const [client, server] = Object.values(webSocketPair);
+    this.ctx.acceptWebSocket(server);
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  async broadcast(data) {
+    const message = JSON.stringify(data);
+    for (const ws of this.ctx.getWebSockets()) {
+      try { ws.send(message); } catch (e) { /* ignore */ }
+    }
+  }
+}
+
 // ================= QQ API 逻辑 =================
 let tokenPromise = null;
 let tokenExpiresAt = 0;
@@ -56,15 +75,11 @@ async function getAccessToken(env) {
       body: JSON.stringify({ appId: env.QQ_APP_ID, clientSecret: env.QQ_CLIENT_SECRET }),
     });
     const data = await res.json();
-    if (data.code) {
-      tokenPromise = null;
-      throw new Error(`获取 token 失败: ${data.code}`);
-    }
+    if (data.code) { tokenPromise = null; throw new Error(`获取 token 失败: ${data.code}`); }
     tokenExpiresAt = now + (data.expires_in || 7200) * 1000;
     return data.access_token;
   })();
-  try { return await tokenPromise; }
-  catch (e) { tokenPromise = null; throw e; }
+  try { return await tokenPromise; } catch (e) { tokenPromise = null; throw e; }
 }
 
 async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgSeq = 1) {
@@ -82,7 +97,6 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   return data;
 }
 
-// ================= node:crypto 签名与验签 =================
 async function handleValidation(plainToken, eventTs, env) {
   const privateKey = makePrivateKey(env.QQ_CLIENT_SECRET);
   const msg = Buffer.from(eventTs + plainToken, 'utf-8');
@@ -98,7 +112,7 @@ async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
 }
 
 // ================= 异步处理 QQ 消息 =================
-async function processIncomingMessage(payload, env) {
+async function processIncomingMessage(payload, env, ctx) {
   try {
     const d = payload.d || {};
     const isGroup = payload.t.startsWith('GROUP');
@@ -106,40 +120,41 @@ async function processIncomingMessage(payload, env) {
     const authorName = isGroup ? d.author?.member_openid : d.author?.user_openid;
     if (!sessionId) return;
 
-    const sessionKey = `session:${sessionId}`;
-    let sessionData = await env.BOT_KV.get(sessionKey);
-    let session = sessionData ? JSON.parse(sessionData) : { id: sessionId, isGroup, name: isGroup ? `群聊 (${sessionId})` : `用户 (${authorName})` };
-    
     const safeContent = parseMessageContent(d);
-    session.lastActive = Date.now();
-    session.lastMessage = safeContent;
-    await env.BOT_KV.put(sessionKey, JSON.stringify(session));
+    const now = Date.now();
 
-    const msgKey = `messages:${sessionId}`;
-    let msgs = JSON.parse(await env.BOT_KV.get(msgKey) || '[]');
-    if (msgs.some(m => m.msgId === d.id)) return;
+    await env.DB.prepare(
+      `INSERT INTO sessions (id, is_group, name, last_active, last_message)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET last_active = excluded.last_active, last_message = excluded.last_message`
+    ).bind(sessionId, isGroup ? 1 : 0, isGroup ? `群聊 (${sessionId})` : `用户 (${authorName})`, now, safeContent).run();
 
-    msgs.push({ type: 'incoming', role: 'user', content: safeContent, msgId: d.id, timestamp: Date.now(), authorName });
-    if (msgs.length > 500) msgs = msgs.slice(-500);
-    await env.BOT_KV.put(msgKey, JSON.stringify(msgs));
+    const existing = await env.DB.prepare(`SELECT id FROM messages WHERE msg_id = ?`).bind(d.id).first();
+    if (!existing) {
+      await env.DB.prepare(
+        `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, author_name)
+         VALUES (?, 'incoming', 'user', ?, ?, ?, ?)`
+      ).bind(sessionId, safeContent, d.id, now, authorName).run();
+    }
+
+    const id = env.CHAT_ROOM.idFromName('global');
+    const stub = env.CHAT_ROOM.get(id);
+    ctx.waitUntil(stub.broadcast({ type: 'update', sessionId }));
   } catch (e) {
-    console.error('【后台处理】消息写入 KV 失败:', e.message);
+    console.error('【后台处理】消息写入失败:', e.message);
   }
 }
 
 // ================= API 路由 =================
 async function handleApi(request, env, path) {
   try {
-    // 健康检查接口
     if (path === '/api/health' && request.method === 'GET') {
       const missingEnvs = [];
       if (!env.QQ_APP_ID) missingEnvs.push('QQ_APP_ID');
       if (!env.QQ_CLIENT_SECRET) missingEnvs.push('QQ_CLIENT_SECRET');
       if (!env.WEB_PASSWORD) missingEnvs.push('WEB_PASSWORD');
-
       if (missingEnvs.length > 0) return Response.json({ error: 'ENV_MISSING', missing: missingEnvs }, { status: 500 });
-      if (!env.BOT_KV) return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
-      
+      if (!env.DB) return Response.json({ error: 'D1_NOT_BOUND' }, { status: 500 });
       return Response.json({ ok: true });
     }
 
@@ -152,59 +167,31 @@ async function handleApi(request, env, path) {
     const authHeader = request.headers.get('Authorization');
     if (authHeader !== `Bearer ${env.WEB_PASSWORD}`) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // 前置 KV 检查
-    if (!env.BOT_KV) {
-      return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
-    }
-
     if (path === '/api/sessions' && request.method === 'GET') {
-      const list = await env.BOT_KV.list({ prefix: 'session:' });
-      
-      // 👇 核心修复：增加 try-catch 容错，过滤掉损坏的脏数据
-      const sessions = await Promise.all(list.keys.map(async k => {
-        try {
-          const val = await env.BOT_KV.get(k.name);
-          return val ? JSON.parse(val) : null;
-        } catch (e) {
-          console.warn(`解析会话 ${k.name} 失败，已跳过:`, e.message);
-          return null;
-        }
-      }));
-      
-      const validSessions = sessions.filter(s => s !== null);
-      validSessions.sort((a, b) => b.lastActive - a.lastActive);
-      return Response.json(validSessions);
+      const { results } = await env.DB.prepare(`SELECT * FROM sessions ORDER BY last_active DESC LIMIT 100`).all();
+      return Response.json(results);
     }
 
     if (path === '/api/messages' && request.method === 'GET') {
       const sessionId = new URL(request.url).searchParams.get('id');
       if (!sessionId) return Response.json({ error: 'Missing ID' }, { status: 400 });
-      
-      // 👇 核心修复：消息列表也加上容错
-      try {
-        const data = await env.BOT_KV.get(`messages:${sessionId}`);
-        return Response.json(data ? JSON.parse(data) : []);
-      } catch (e) {
-        console.warn(`解析消息 ${sessionId} 失败:`, e.message);
-        return Response.json([]); // 坏了就返回空数组，不阻断前端
-      }
+      const { results } = await env.DB.prepare(`SELECT * FROM messages WHERE session_id = ? ORDER BY timestamp ASC LIMIT 500`).bind(sessionId).all();
+      return Response.json(results);
     }
 
     if (path === '/api/send' && request.method === 'POST') {
       const { sessionId, isGroup, content, msgId, msgSeq } = await request.json();
       if (!sessionId || !content) return Response.json({ error: '参数缺失' }, { status: 400 });
-
       const res = await sendQQMessage(env, sessionId, isGroup, content, msgId, msgSeq || 1);
       
-      const key = `messages:${sessionId}`;
-      try {
-        let msgs = JSON.parse(await env.BOT_KV.get(key) || '[]');
-        msgs.push({ type: 'outgoing', role: 'bot', content, msgId: res.id, timestamp: Date.now(), isPassive: !!msgId });
-        if (msgs.length > 500) msgs = msgs.slice(-500);
-        await env.BOT_KV.put(key, JSON.stringify(msgs));
-      } catch (e) {
-        console.error('写入发送记录失败:', e.message);
-      }
+      const now = Date.now();
+      await env.DB.prepare(
+        `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, is_passive) VALUES (?, 'outgoing', 'bot', ?, ?, ?, ?)`
+      ).bind(sessionId, content, res.id, now, msgId ? 1 : 0).run();
+      await env.DB.prepare(`UPDATE sessions SET last_active = ? WHERE id = ?`).bind(now, sessionId).run();
+      
+      const id = env.CHAT_ROOM.idFromName('global');
+      await env.CHAT_ROOM.get(id).broadcast({ type: 'update', sessionId });
       
       return Response.json({ ok: true, msgId: res.id });
     }
@@ -216,15 +203,12 @@ async function handleApi(request, env, path) {
   }
 }
 
-// ================= Webhook =================
+// ================= Webhook & 入口 =================
 async function handleQQWebhook(request, env, ctx) {
   try {
     const rawBody = await request.arrayBuffer();
     const payload = JSON.parse(new TextDecoder().decode(rawBody));
-
-    if (payload.op === 13 && payload.d?.plain_token) {
-      return await handleValidation(payload.d.plain_token, payload.d.event_ts, env);
-    }
+    if (payload.op === 13 && payload.d?.plain_token) return await handleValidation(payload.d.plain_token, payload.d.event_ts, env);
 
     const signature = request.headers.get('X-Signature-Ed25519');
     const timestamp = request.headers.get('X-Signature-Timestamp');
@@ -234,11 +218,7 @@ async function handleQQWebhook(request, env, ctx) {
     }
 
     if (['GROUP_AT_MESSAGE_CREATE', 'GROUP_MESSAGE_CREATE', 'C2C_MESSAGE_CREATE'].includes(payload.t)) {
-      if (!env.BOT_KV) {
-        console.error('收到消息但未绑定 KV，无法存储');
-      } else {
-        ctx.waitUntil(processIncomingMessage(payload, env));
-      }
+      ctx.waitUntil(processIncomingMessage(payload, env, ctx));
     }
     return Response.json({ ok: true });
   } catch (e) {
@@ -247,12 +227,16 @@ async function handleQQWebhook(request, env, ctx) {
   }
 }
 
-// ================= 路由入口 =================
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === '/qq-webhook') return handleQQWebhook(request, env, ctx);
     if (url.pathname.startsWith('/api/')) return handleApi(request, env, url.pathname);
+    if (url.pathname === '/ws') {
+      const id = env.CHAT_ROOM.idFromName('global');
+      const stub = env.CHAT_ROOM.get(id);
+      return stub.fetch(request);
+    }
     if (url.pathname === '/') return new Response(FRONTEND_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     return new Response('Not Found', { status: 404 });
   },

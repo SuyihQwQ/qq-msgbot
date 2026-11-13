@@ -1,10 +1,10 @@
 {
   "name": "qq-msgbot",
   "version": "1.0.0",
-  "description": "QQ Bot Web Console on Cloudflare Workers",
+  "description": "QQ Bot Web Console on Cloudflare Workers with D1 & Durable Objects",
   "main": "src/index.js",
   "scripts": {
-    "deploy": "wrangler deploy"
+    "deploy": "npx wrangler d1 migrations apply qq-msgbot-db --remote && npx wrangler deploy"
   },
   "dependencies": {},
   "devDependencies": {

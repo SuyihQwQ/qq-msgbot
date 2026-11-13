@@ -73,16 +73,16 @@ export const FRONTEND_HTML = `
     </div>
   </div>
 
-  <div id="kv-error-layer" class="error-layer">
+  <div id="db-error-layer" class="error-layer">
     <div class="error-box">
-      <h2>⚠️ 系统未就绪：缺少 KV 数据库</h2>
-      <p>检测到尚未绑定 Cloudflare KV。本系统必须依赖 KV 才能存储聊天记录。</p>
+      <h2>⚠️ 系统未就绪：缺少 D1 数据库</h2>
+      <p>检测到尚未绑定 Cloudflare D1 数据库。本系统必须依赖 D1 才能存储聊天记录。</p>
       <p><b>解决方法：</b></p>
       <ol>
-        <li>前往 Cloudflare 控制台，进入当前 Worker 的 <b>Settings (设置) -> Variables (变量)</b>。</li>
-        <li>滚动到 <b>KV Namespace Bindings (KV 命名空间绑定)</b>，点击 <b>Add binding (添加绑定)</b>。</li>
-        <li>Variable name 填入：<code>BOT_KV</code></li>
-        <li>KV namespace 选择 <b>Create new (新建)</b> 或选择已有的空间。</li>
+        <li>前往 Cloudflare 控制台，进入当前 Worker 的 <b>Settings (设置) -> Bindings (绑定)</b>。</li>
+        <li>点击 <b>Add binding</b>，选择 <b>D1 Database</b>。</li>
+        <li>Variable name 填入：<code>DB</code></li>
+        <li>选择一个 D1 数据库（如果没有，请先去 D1 菜单创建一个）。</li>
         <li>点击保存并刷新此页面。</li>
       </ol>
     </div>
@@ -122,29 +122,25 @@ export const FRONTEND_HTML = `
     let currentSession = null;
     let replyToMsg = null;
     let sessionsData = [];
-    let pollInterval = null;
+    let ws = null;
 
     function escapeHTML(str) {
-      return String(str).replace(/[&<>'"]/g, 
-        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-      );
+      return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
     }
 
     function checkFatalError(data) {
       if (!data) return false;
-      
       if (data.error === 'ENV_MISSING') {
         document.getElementById('loading-page').style.display = 'none';
         document.getElementById('missing-envs').innerText = data.missing.join(', ');
         document.getElementById('env-error-layer').style.display = 'flex';
-        if (pollInterval) clearInterval(pollInterval);
+        if (ws) ws.close();
         return true;
       }
-      
-      if (data.error === 'KV_NOT_BOUND') {
+      if (data.error === 'D1_NOT_BOUND') {
         document.getElementById('loading-page').style.display = 'none';
-        document.getElementById('kv-error-layer').style.display = 'flex';
-        if (pollInterval) clearInterval(pollInterval);
+        document.getElementById('db-error-layer').style.display = 'flex';
+        if (ws) ws.close();
         return true;
       }
       return false;
@@ -154,16 +150,10 @@ export const FRONTEND_HTML = `
       try {
         const res = await fetch('/api/health');
         const data = await res.json();
-        
         if (checkFatalError(data)) return;
-        
         document.getElementById('loading-page').style.display = 'none';
-        
-        if (token) {
-          showApp();
-        } else {
-          document.getElementById('login-page').style.display = 'flex';
-        }
+        if (token) showApp();
+        else document.getElementById('login-page').style.display = 'flex';
       } catch (e) {
         document.getElementById('loading-page').innerHTML = '<span style="color:red">无法连接到服务器，请刷新重试</span>';
       }
@@ -174,36 +164,46 @@ export const FRONTEND_HTML = `
     async function login() {
       const pwd = document.getElementById('pwd').value;
       try {
-        const res = await fetch('/api/login', { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pwd }) 
-        });
+        const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd }) });
         const data = await res.json();
         if (checkFatalError(data)) return;
-        
         if (res.ok) {
           token = data.token;
           localStorage.setItem('bot_token', token);
           document.getElementById('login-page').style.display = 'none';
           showApp();
-        } else {
-          alert(data.error || '密码错误');
-        }
-      } catch (e) {
-        alert('网络请求失败');
-      }
+        } else alert(data.error || '密码错误');
+      } catch (e) { alert('网络请求失败'); }
     }
 
     function showApp() {
       document.getElementById('login-page').style.display = 'none';
       document.getElementById('app').style.display = 'flex';
       loadSessions();
-      if (pollInterval) clearInterval(pollInterval);
-      pollInterval = setInterval(() => {
-        loadSessions();
-        if (currentSession) loadMessages(currentSession.id, true);
-      }, 3000);
+      initWebSocket();
+    }
+
+    function initWebSocket() {
+      if (ws) ws.close();
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+      ws = new WebSocket(wsProtocol + window.location.host + '/ws');
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'update') {
+            loadSessions();
+            if (currentSession && data.sessionId === currentSession.id) {
+              loadMessages(currentSession.id, true);
+            }
+          }
+        } catch (e) {}
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket 断开，5秒后重连...');
+        setTimeout(initWebSocket, 5000);
+      };
     }
 
     async function loadSessions() {
@@ -211,15 +211,14 @@ export const FRONTEND_HTML = `
         const res = await fetch('/api/sessions', { headers: { 'Authorization': 'Bearer ' + token } });
         const data = await res.json();
         if (checkFatalError(data)) return;
-        
         if (res.status === 401) { localStorage.removeItem('bot_token'); location.reload(); return; }
         sessionsData = data;
         
         const listEl = document.getElementById('session-list');
         listEl.innerHTML = sessionsData.map(s => \`
           <div class="session-item \${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('\${escapeHTML(s.id)}')">
-            <div class="session-name">\${s.isGroup ? '👥 群聊' : '👤 私聊'} - \${escapeHTML(s.id.substring(0,8))}...</div>
-            <div class="session-preview">\${escapeHTML(s.lastMessage || '暂无消息')}</div>
+            <div class="session-name">\${s.is_group ? '👥 群聊' : '👤 私聊'} - \${escapeHTML(s.id.substring(0,8))}...</div>
+            <div class="session-preview">\${escapeHTML(s.last_message || '暂无消息')}</div>
           </div>
         \`).join('');
       } catch (e) {}
@@ -228,14 +227,14 @@ export const FRONTEND_HTML = `
     async function selectSession(id) {
       if (currentSession?.id === id) return;
       currentSession = sessionsData.find(s => s.id === id);
-      document.getElementById('chat-title').innerText = (currentSession.isGroup ? '群聊' : '私聊') + ' - ' + id.substring(0,12);
+      document.getElementById('chat-title').innerText = (currentSession.is_group ? '群聊' : '私聊') + ' - ' + id.substring(0,12);
       cancelReply();
       document.getElementById('messages').dataset.count = -1;
       await loadMessages(id, false);
       loadSessions();
     }
 
-    async function loadMessages(sessionId, isPolling) {
+    async function loadMessages(sessionId, isPush) {
       try {
         const res = await fetch(\`/api/messages?id=\${sessionId}\`, { headers: { 'Authorization': 'Bearer ' + token } });
         const msgs = await res.json();
@@ -256,14 +255,14 @@ export const FRONTEND_HTML = `
               <div class="msg-bubble">\${escapeHTML(m.content)}</div>
               <div class="msg-meta">
                 \${new Date(m.timestamp).toLocaleTimeString()}
-                \${isOut && m.isPassive ? '<span style="color:#52c41a">(被动回复)</span>' : ''}
-                \${showReplyBtn ? \`<span class="reply-btn" onclick="startReply('\${escapeHTML(m.msgId)}')">回复此消息(被动)</span>\` : ''}
+                \${isOut && m.is_passive ? '<span style="color:#52c41a">(被动回复)</span>' : ''}
+                \${showReplyBtn ? \`<span class="reply-btn" onclick="startReply('\${escapeHTML(m.msg_id)}')">回复此消息(被动)</span>\` : ''}
               </div>
             </div>
           \`;
         }).join('');
         
-        if (!isPolling) msgEl.scrollTop = msgEl.scrollHeight;
+        if (!isPush) msgEl.scrollTop = msgEl.scrollHeight;
       } catch (e) {}
     }
 
@@ -287,7 +286,7 @@ export const FRONTEND_HTML = `
       const content = document.getElementById('msg-input').value.trim();
       if (!content) return;
 
-      const body = { sessionId: currentSession.id, isGroup: currentSession.isGroup, content: content };
+      const body = { sessionId: currentSession.id, isGroup: currentSession.is_group === 1, content: content };
       if (replyToMsg) {
         body.msgId = replyToMsg;
         body.msgSeq = Math.floor(Math.random() * 100) + 1;
@@ -306,10 +305,7 @@ export const FRONTEND_HTML = `
         const data = await res.json();
         if (checkFatalError(data)) return;
         if (!res.ok) throw new Error(data.error);
-        
         cancelReply();
-        document.getElementById('messages').dataset.count = -1;
-        await loadMessages(currentSession.id, false);
       } catch (e) {
         alert(e.message);
       } finally {
