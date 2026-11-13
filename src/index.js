@@ -6,6 +6,9 @@ const QQ_TOKEN_URL = 'https://api.bot.qq.com/app/getAppAccessToken';
 const QQ_SEND_BASE = 'https://api.sgroup.qq.com/v2';
 const PKCS8_HEADER = Buffer.from('302e020100300506032b657004220420', 'hex');
 
+// 👇 全局变量：用于记录机器人自己的 OpenID
+let botOpenId = null;
+
 // ================= 工具函数 =================
 function buildEd25519Seed(secret) {
   if (!secret) throw new Error('QQ_CLIENT_SECRET is empty');
@@ -168,6 +171,21 @@ async function processIncomingMessage(payload, env, ctx) {
 
     if (!sessionId) return;
 
+    // 👇 核心改动：尝试从 mentions 或文本中提取机器人自己的 OpenID 并缓存
+    if (d.mentions && d.mentions.length > 0) {
+      for (const m of d.mentions) {
+        if (m.member_openid && m.member_openid !== authorOpenid) {
+          botOpenId = m.member_openid;
+        }
+      }
+    }
+    if (d.content) {
+      const match = d.content.match(/<@!?([A-Za-z0-9]+)>/);
+      if (match && match[1] !== authorOpenid) {
+        botOpenId = match[1];
+      }
+    }
+
     const safeContent = parseMessageContent(d);
     const attachmentsData = await processAttachments(env, d.attachments);
 
@@ -252,10 +270,12 @@ async function handleApi(request, env, path) {
 
       const now = Date.now();
 
-      // 👇 核心改动：把机器人自己的标识存入 author_name
+      // 👇 核心改动：如果提取到了 botOpenId，就把气泡标为它，否则标为 Bot
+      const senderName = botOpenId ? `@${botOpenId}` : 'Bot';
+
       await env.DB.prepare(
         `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, is_passive, author_name) VALUES (?, 'outgoing', 'bot', ?, ?, ?, ?, ?)`
-      ).bind(sessionId, content, res.id, now, msgId ? 1 : 0, `Bot (${env.QQ_APP_ID})`).run();
+      ).bind(sessionId, content, res.id, now, msgId ? 1 : 0, senderName).run();
 
       await env.DB.prepare(`UPDATE sessions SET last_active = ? WHERE id = ?`).bind(now, sessionId).run();
 

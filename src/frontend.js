@@ -44,9 +44,8 @@ body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; d
 .msg.incoming { align-self: flex-start; }
 .msg.outgoing { align-self: flex-end; align-items: flex-end; }
 
-/* 👇 机器人的名字也会显示了 */
 .msg-author { font-size: 12px; color: #888; margin-bottom: 4px; padding-left: 4px; word-break: break-all;}
-.msg.outgoing .msg-author { color: #1890ff; text-align: right; padding-right: 4px; padding-left: 0; }
+.msg.outgoing .msg-author { color: #1890ff; font-weight: bold; text-align: right; padding-right: 4px; padding-left: 0; }
 
 .msg-bubble { padding: 10px 15px; border-radius: 8px; font-size: 14px; word-wrap: break-word; position: relative; }
 .msg.incoming .msg-bubble { background: #fff; border: 1px solid #e0e0e0; color: #333; }
@@ -247,9 +246,7 @@ async function loadMessages(sessionId, isPush) {
     const msgEl = document.getElementById('messages');
     if (msgEl.dataset.count == msgs.length) return;
 
-    // 👇 记录更新前，滚动条是否已经在底部附近（距离底部小于 150px）
     const isScrolledToBottom = msgEl.scrollHeight - msgEl.scrollTop - msgEl.clientHeight < 150;
-
     msgEl.dataset.count = msgs.length;
 
     const now = Date.now();
@@ -296,7 +293,6 @@ async function loadMessages(sessionId, isPush) {
       \`;
     }).join('');
 
-    // 👇 如果是首次渲染(!isPush)，或者发送了消息，或者之前就在底部，则自动滚动到底部
     if (!isPush || isScrolledToBottom) {
       msgEl.scrollTop = msgEl.scrollHeight;
     }
