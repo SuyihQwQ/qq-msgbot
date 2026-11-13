@@ -244,7 +244,10 @@ async function processIncomingMessage(payload, env, ctx) {
       await env.DB.prepare(
         `INSERT INTO messages (session_id, type, role, content, attachments, msg_id, timestamp, author_name, quote_msg_id, quote_content)
         VALUES (?, 'incoming', 'user', ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(sessionId, safeContent, attachmentsData, d.id, now, authorName, quoteMsgId, quoteContent).run();
+      ).bind(
+        sessionId, safeContent || '', attachmentsData || null, d.id || null,
+        now, authorName || '未知', quoteMsgId || null, quoteContent || null
+      ).run();
     }
 
     ctx.waitUntil(env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('global')).broadcast({ type: 'update', sessionId }));
@@ -310,7 +313,6 @@ async function handleApi(request, env, path) {
 
     if (path === '/api/login' && request.method === 'POST') {
       const { password } = await request.json();
-      // 👇 返回 token 同时返回过期时间（24 小时 = 86400 秒）
       if (password === env.WEB_PASSWORD) return Response.json({ token: env.WEB_PASSWORD, expiresIn: 86400 });
       return Response.json({ error: '密码错误' }, { status: 401 });
     }
@@ -333,19 +335,33 @@ async function handleApi(request, env, path) {
     }
 
     if (path === '/api/send' && request.method === 'POST') {
-      const { sessionId, isGroup, content, msgId, msgSeq, quoteMsgId, quoteContent } = await request.json();
-      if (!sessionId || !content) return Response.json({ error: '参数缺失' }, { status: 400 });
-      const res = await sendQQMessage(env, sessionId, isGroup, content, msgId, msgSeq || 1, quoteMsgId);
+      const reqData = await request.json();
 
+      // 👇 核心修复：确保所有变量都有默认值，避免 undefined 导致 D1 报错
+      const sessionId = reqData.sessionId || null;
+      const isGroup = reqData.isGroup ? 1 : 0;
+      const content = reqData.content || '';
+      const msgId = reqData.msgId || null;
+      const msgSeq = reqData.msgSeq || 1;
+      const quoteMsgId = reqData.quoteMsgId || null;
+      const quoteContent = reqData.quoteContent || null;
+
+      if (!sessionId || !content) return Response.json({ error: '参数缺失' }, { status: 400 });
+
+      const res = await sendQQMessage(env, sessionId, isGroup, content, msgId, msgSeq, quoteMsgId);
       const now = Date.now();
+
       await env.DB.prepare(
         `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, is_passive, quote_msg_id, quote_content)
         VALUES (?, 'outgoing', 'bot', ?, ?, ?, ?, ?, ?)`
-      ).bind(sessionId, content, res.id, now, msgId ? 1 : 0, quoteMsgId, quoteContent).run();
+      ).bind(
+        sessionId, content, res.id || null, now, msgId ? 1 : 0,
+        quoteMsgId || null, quoteContent || null
+      ).run();
 
       await env.DB.prepare(`UPDATE sessions SET last_active = ? WHERE id = ?`).bind(now, sessionId).run();
       ctx.waitUntil(env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('global')).broadcast({ type: 'update', sessionId }));
-      return Response.json({ ok: true, msgId: res.id });
+      return Response.json({ ok: true, msgId: res.id || null });
     }
 
     if (path === '/api/recall' && request.method === 'POST') {
@@ -380,7 +396,10 @@ async function handleApi(request, env, path) {
     }
 
     return Response.json({ error: 'Not Found' }, { status: 404 });
-  } catch (err) { return Response.json({ error: err.message || 'Server Error' }, { status: 500 }); }
+  } catch (err) {
+    console.error('API异常:', err);
+    return Response.json({ error: err.message || 'Server Error' }, { status: 500 });
+  }
 }
 
 // ================= Webhook 入口 =================
