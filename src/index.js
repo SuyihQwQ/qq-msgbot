@@ -40,7 +40,40 @@ function makePrivateKey(secret) {
   return createPrivateKey({ key: pkcs8, format: 'der', type: 'pkcs8' });
 }
 
-// ================= 👇 Durable Object =================
+// ================= 👇 自动初始化 D1 数据库表 =================
+let dbInitialized = false;
+async function ensureTables(env) {
+  if (dbInitialized) return;
+  try {
+    await env.DB.batch([
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        is_group INTEGER NOT NULL,
+        name TEXT,
+        last_active INTEGER,
+        last_message TEXT
+      )`),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        msg_id TEXT,
+        timestamp INTEGER,
+        is_passive INTEGER DEFAULT 0,
+        author_name TEXT
+      )`),
+      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)`)
+    ]);
+    dbInitialized = true;
+    console.log('✅ D1 数据库表结构检查/初始化完成');
+  } catch (e) {
+    console.error('❌ D1 数据库初始化失败:', e.message);
+  }
+}
+
+// ================= Durable Object =================
 export class ChatRoom extends DurableObject {
   async fetch(request) {
     const upgradeHeader = request.headers.get('Upgrade');
@@ -114,6 +147,8 @@ async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
 // ================= 异步处理 QQ 消息 =================
 async function processIncomingMessage(payload, env, ctx) {
   try {
+    await ensureTables(env); // 👈 核心：在写入前确保表已存在
+
     const d = payload.d || {};
     const isGroup = payload.t.startsWith('GROUP');
     const sessionId = isGroup ? d.group_openid : d.author?.user_openid;
@@ -166,6 +201,8 @@ async function handleApi(request, env, path) {
 
     const authHeader = request.headers.get('Authorization');
     if (authHeader !== `Bearer ${env.WEB_PASSWORD}`) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    await ensureTables(env); // 👈 核心：在查询前确保表已存在
 
     if (path === '/api/sessions' && request.method === 'GET') {
       const { results } = await env.DB.prepare(`SELECT * FROM sessions ORDER BY last_active DESC LIMIT 100`).all();
