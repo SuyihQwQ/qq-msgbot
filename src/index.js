@@ -77,16 +77,16 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
 async function handleValidation(plainToken, eventTs, env) {
   const seed = buildEd25519Seed(env.QQ_CLIENT_SECRET);
   const msg = new TextEncoder().encode(eventTs + plainToken);
-  const signature = await ed.signAsync(msg, seed); // 异步签名
+  const signature = await ed.signAsync(msg, seed);
   return Response.json({ plain_token: plainToken, signature: bytesToHex(signature) });
 }
 
 async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
   const seed = buildEd25519Seed(env.QQ_CLIENT_SECRET);
-  const publicKey = await ed.getPublicKeyAsync(seed); // 异步获取公钥
+  const publicKey = await ed.getPublicKeyAsync(seed);
   const msg = new TextEncoder().encode(timestamp);
   const message = new Uint8Array([...msg, ...new Uint8Array(rawBody)]);
-  return ed.verifyAsync(hexToBytes(signatureHex), message, publicKey); // 异步验签
+  return ed.verifyAsync(hexToBytes(signatureHex), message, publicKey);
 }
 
 // ================= 异步处理 QQ 消息 =================
@@ -122,31 +122,31 @@ async function processIncomingMessage(payload, env) {
 // ================= API 路由 =================
 async function handleApi(request, env, path) {
   try {
-    // 👇 1. 优先检查环境变量 (包括登录接口也需要知道 WEB_PASSWORD) 👇
-    const missingEnvs = [];
-    if (!env.QQ_APP_ID) missingEnvs.push('QQ_APP_ID');
-    if (!env.QQ_CLIENT_SECRET) missingEnvs.push('QQ_CLIENT_SECRET');
-    if (!env.WEB_PASSWORD) missingEnvs.push('WEB_PASSWORD');
+    // 👇 健康检查接口，无需鉴权，用于前端初始化检查 👇
+    if (path === '/api/health' && request.method === 'GET') {
+      const missingEnvs = [];
+      if (!env.QQ_APP_ID) missingEnvs.push('QQ_APP_ID');
+      if (!env.QQ_CLIENT_SECRET) missingEnvs.push('QQ_CLIENT_SECRET');
+      if (!env.WEB_PASSWORD) missingEnvs.push('WEB_PASSWORD');
 
-    if (missingEnvs.length > 0) {
-      return Response.json({ error: 'ENV_MISSING', missing: missingEnvs }, { status: 500 });
+      if (missingEnvs.length > 0) {
+        return Response.json({ error: 'ENV_MISSING', missing: missingEnvs }, { status: 500 });
+      }
+      if (!env.BOT_KV) {
+        return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
+      }
+      return Response.json({ ok: true });
     }
 
-    // 2. 登录接口
+    // 正常鉴权
     if (path === '/api/login' && request.method === 'POST') {
       const { password } = await request.json();
       if (password === env.WEB_PASSWORD) return Response.json({ token: env.WEB_PASSWORD });
       return Response.json({ error: '密码错误' }, { status: 401 });
     }
 
-    // 3. 鉴权拦截
     const authHeader = request.headers.get('Authorization');
     if (authHeader !== `Bearer ${env.WEB_PASSWORD}`) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-
-    // 4. 拦截未绑定 KV 的请求
-    if (!env.BOT_KV) {
-      return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
-    }
 
     if (path === '/api/sessions' && request.method === 'GET') {
       const list = await env.BOT_KV.list({ prefix: 'session:' });

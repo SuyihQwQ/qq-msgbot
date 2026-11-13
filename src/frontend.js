@@ -8,7 +8,13 @@ export const FRONTEND_HTML = `
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; display: flex; }
-    #login-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; }
+    
+    /* Loading 页 */
+    #loading-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; font-size: 16px; color: #666; flex-direction: column; gap: 10px;}
+    .spinner { width: 30px; height: 30px; border: 3px solid #ccc; border-top-color: #1890ff; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #login-page { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; }
     .login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 300px; }
     .login-box input { width: 100%; padding: 10px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; }
     .login-box button { width: 100%; padding: 10px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; }
@@ -22,6 +28,7 @@ export const FRONTEND_HTML = `
     .error-box ol { margin-left: 20px; color: #ccc; font-size: 14px; line-height: 1.8; }
     .missing-list { color: #ff4d4f; font-weight: bold; font-size: 16px; display: block; margin: 10px 0; }
 
+    /* 主界面 */
     #app { display: none; width: 100%; height: 100%; background: white; }
     .sidebar { width: 280px; background: #f7f7f7; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; }
     .sidebar-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: bold; font-size: 18px; background: #fff;}
@@ -49,7 +56,13 @@ export const FRONTEND_HTML = `
   </style>
 </head>
 <body>
-  <!-- 1. 环境变量缺失遮罩层 -->
+  <!-- 1. Loading 页 -->
+  <div id="loading-page">
+    <div class="spinner"></div>
+    <div>正在检查系统状态...</div>
+  </div>
+
+  <!-- 2. 环境变量缺失遮罩层 -->
   <div id="env-error-layer" class="error-layer">
     <div class="error-box">
       <h2>⚠️ 系统未就绪：缺少必需环境变量</h2>
@@ -65,7 +78,7 @@ export const FRONTEND_HTML = `
     </div>
   </div>
 
-  <!-- 2. KV 未绑定遮罩层 -->
+  <!-- 3. KV 未绑定遮罩层 -->
   <div id="kv-error-layer" class="error-layer">
     <div class="error-box">
       <h2>⚠️ 系统未就绪：缺少 KV 数据库</h2>
@@ -81,6 +94,7 @@ export const FRONTEND_HTML = `
     </div>
   </div>
 
+  <!-- 4. 登录页 -->
   <div id="login-page">
     <div class="login-box">
       <h2 style="text-align: center;">QQ MsgBot</h2>
@@ -89,6 +103,7 @@ export const FRONTEND_HTML = `
     </div>
   </div>
 
+  <!-- 5. 主界面 -->
   <div id="app">
     <div class="sidebar">
       <div class="sidebar-header">会话列表</div>
@@ -123,27 +138,47 @@ export const FRONTEND_HTML = `
       );
     }
 
-    // 统一处理后端返回的致命错误
     function checkFatalError(data) {
       if (!data) return false;
       
-      // 处理环境变量缺失
       if (data.error === 'ENV_MISSING') {
+        document.getElementById('loading-page').style.display = 'none';
         document.getElementById('missing-envs').innerText = data.missing.join(', ');
         document.getElementById('env-error-layer').style.display = 'flex';
         if (pollInterval) clearInterval(pollInterval);
         return true;
       }
       
-      // 处理 KV 未绑定
       if (data.error === 'KV_NOT_BOUND') {
+        document.getElementById('loading-page').style.display = 'none';
         document.getElementById('kv-error-layer').style.display = 'flex';
         if (pollInterval) clearInterval(pollInterval);
         return true;
       }
-      
       return false;
     }
+
+    // 👇 启动时优先执行健康检查 👇
+    async function checkSystemStatus() {
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        
+        if (checkFatalError(data)) return;
+        
+        document.getElementById('loading-page').style.display = 'none';
+        
+        if (token) {
+          showApp();
+        } else {
+          document.getElementById('login-page').style.display = 'flex';
+        }
+      } catch (e) {
+        document.getElementById('loading-page').innerHTML = '<span style="color:red">无法连接到服务器，请刷新重试</span>';
+      }
+    }
+
+    checkSystemStatus();
 
     async function login() {
       const pwd = document.getElementById('pwd').value;
@@ -159,6 +194,7 @@ export const FRONTEND_HTML = `
         if (res.ok) {
           token = data.token;
           localStorage.setItem('bot_token', token);
+          document.getElementById('login-page').style.display = 'none';
           showApp();
         } else {
           alert(data.error || '密码错误');
@@ -178,8 +214,6 @@ export const FRONTEND_HTML = `
         if (currentSession) loadMessages(currentSession.id, true);
       }, 3000);
     }
-
-    if (token) showApp();
 
     async function loadSessions() {
       try {
