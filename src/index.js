@@ -147,13 +147,26 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   return data;
 }
 
+// 👇 撤回接口（支持撤回群成员消息）
 async function recallQQMessage(env, targetId, isGroup, messageId) {
   const token = await getAccessToken(env);
   const url = isGroup ? `${QQ_SEND_BASE}/groups/${targetId}/messages/${messageId}` : `${QQ_SEND_BASE}/users/${targetId}/messages/${messageId}`;
   const res = await fetch(url, { method: 'DELETE', headers: { Authorization: `QQBot ${token}` } });
   if (!res.ok) {
-    const error = await res.json();
-    throw new Error(`撤回失败: ${error.code} ${error.message || ''}`);
+    let errMsg = '';
+    try {
+      const error = await res.json();
+      if (error.code === 11253) {
+        errMsg = '无操作权限：请确保机器人是群管理员，且该接口已在平台申请白名单。';
+      } else if (error.code === 40064004) {
+        errMsg = '消息发送超过 2 分钟，无法撤回。';
+      } else {
+        errMsg = `撤回失败: ${error.code} ${error.message || ''}`;
+      }
+    } catch (e) {
+      errMsg = '撤回失败: 未知错误';
+    }
+    throw new Error(errMsg);
   }
   return true;
 }
@@ -165,7 +178,13 @@ async function kickGroupMember(env, groupOpenid, memberOpenid, addToBlacklist = 
     body: JSON.stringify({ member_openids: [memberOpenid], add_to_member_blacklist: addToBlacklist }),
   });
   const data = await res.json();
-  if (data.code) throw new Error(`踢人失败: ${data.code} ${data.message || ''}`);
+  if (data.code) {
+    let errMsg = `踢人失败: ${data.code} ${data.message || ''}`;
+    if (data.code === 11253) {
+      errMsg = '踢人失败: 该接口需要向平台申请白名单（11253 应用无接口访问权限）';
+    }
+    throw new Error(errMsg);
+  }
   return data;
 }
 
@@ -177,7 +196,13 @@ async function muteGroupMember(env, groupOpenid, memberOpenid, durationMins) {
     body: JSON.stringify({ members: [{ op: "add", member_openid: memberOpenid, mute_expire_at: muteExpireAt }] }),
   });
   const data = await res.json();
-  if (data.code) throw new Error(`禁言失败: ${data.code} ${data.message || ''}`);
+  if (data.code) {
+    let errMsg = `禁言失败: ${data.code} ${data.message || ''}`;
+    if (data.code === 11253) {
+      errMsg = '禁言失败: 该接口需要向平台申请白名单（11253 应用无接口访问权限）';
+    }
+    throw new Error(errMsg);
+  }
   return data;
 }
 
@@ -336,8 +361,6 @@ async function handleApi(request, env, path) {
 
     if (path === '/api/send' && request.method === 'POST') {
       const reqData = await request.json();
-
-      // 👇 核心修复：确保所有变量都有默认值，避免 undefined 导致 D1 报错
       const sessionId = reqData.sessionId || null;
       const isGroup = reqData.isGroup ? 1 : 0;
       const content = reqData.content || '';

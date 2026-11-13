@@ -9,12 +9,10 @@ export const FRONTEND_HTML = `
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; height: 100vh; display: flex; color: #333; }
 
-/* Loading */
 #loading-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; font-size: 15px; color: #666; flex-direction: column; gap: 12px;}
 .spinner { width: 36px; height: 36px; border: 3px solid #d9d9d9; border-top-color: #1890ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* 登录 */
 #login-page { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; background: #f0f2f5;}
 .login-box { background: white; padding: 40px 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); width: 320px; }
 .login-box h2 { text-align: center; margin-bottom: 25px; font-weight: 600; color: #1a1a1a; }
@@ -23,7 +21,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .login-box button { width: 100%; padding: 12px; background: #1890ff; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; transition: background 0.2s;}
 .login-box button:hover { background: #40a9ff; }
 
-/* 错误遮罩 */
 .error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
 .error-box { background: #fff; padding: 40px; border-radius: 12px; border-top: 4px solid #ff4d4f; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
 .error-box h2 { color: #ff4d4f; margin-bottom: 20px; text-align: center; font-size: 20px;}
@@ -32,10 +29,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .error-box ol { margin-left: 20px; color: #555; font-size: 14px; line-height: 1.8; }
 .missing-list { color: #ff4d4f; font-weight: bold; font-size: 16px; display: block; margin: 10px 0; text-align: center;}
 
-/* 主界面 */
 #app { display: none; width: 100%; height: 100%; background: white; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
 
-/* 侧边栏 */
 .sidebar { width: 300px; background: #f7f9fa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; }
 .sidebar-header { padding: 20px 15px; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 18px; background: #fff; color: #1a1a1a; display: flex; align-items: center; gap: 8px;}
 .session-list { flex: 1; overflow-y: auto; padding: 10px; }
@@ -47,12 +42,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .session-item:hover .delete-session-btn { opacity: 1; }
 .session-item.active { background: #e6f7ff; border-left: 4px solid #1890ff; padding-left: 11px;}
 
-/* 聊天区 */
 .chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative;}
 .chat-header { padding: 20px 25px; border-bottom: 1px solid #e8e8e8; font-weight: 600; display: flex; justify-content: space-between; align-items: center; background: #fff; color: #1a1a1a; z-index: 10;}
 .messages { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; scroll-behavior: smooth;}
 
-/* 气泡 */
 .msg { margin-bottom: 20px; display: flex; flex-direction: column; max-width: 75%; }
 .msg.incoming { align-self: flex-start; }
 .msg.outgoing { align-self: flex-end; align-items: flex-end; }
@@ -61,13 +54,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .msg.incoming .msg-bubble { background: #fff; color: #333; border-top-left-radius: 2px;}
 .msg.outgoing .msg-bubble { background: #1890ff; color: #fff; border-top-right-radius: 2px;}
 
-/* 引用与系统消息 */
 .msg.system { align-self: center; align-items: center; max-width: 90%; margin: 15px 0;}
 .msg-system-text { font-size: 12px; color: #888; background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px; text-align: center; }
 .quote-box { background: rgba(0,0,0,0.04); border-left: 3px solid #ccc; padding: 6px 10px; margin-bottom: 10px; font-size: 12px; color: #666; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
 .msg.outgoing .quote-box { background: rgba(255,255,255,0.15); border-left-color: #fff; color: rgba(255,255,255,0.85); }
 
-/* 底部元数据及操作栏 */
 .msg-meta { font-size: 12px; color: #b3b3b3; margin-top: 6px; display: flex; align-items: center; gap: 10px; opacity: 0; transition: opacity 0.2s;}
 .msg:hover .msg-meta { opacity: 1; }
 .msg.outgoing .msg-meta { justify-content: flex-end; }
@@ -76,7 +67,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .action-btn:hover { background: #f0f0f0; border-color: #d9d9d9; transform: translateY(-1px);}
 .msg.outgoing .action-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; }
 
-/* 附件 */
 .attachment-img-box { margin-top: 8px; max-width: 100%; }
 .chat-img { max-width: 220px; max-height: 220px; border-radius: 8px; cursor: pointer; object-fit: cover; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1);}
 .attachment-error { display: inline-block; font-size: 12px; color: #999; background: #f5f5f5; padding: 4px 8px; border-radius: 4px; font-style: italic; margin-top: 5px;}
@@ -84,7 +74,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .attachment-link:hover { background: #f0f7ff; }
 .msg.outgoing .attachment-link { background: rgba(255,255,255,0.15); border-color: transparent; color: #fff;}
 
-/* 输入区 */
 .input-area { padding: 15px 25px; background: #fff; border-top: 1px solid #e8e8e8; display: flex; gap: 15px; align-items: flex-end;}
 .input-area textarea { flex: 1; height: 60px; padding: 12px 15px; border: 1px solid #d9d9d9; border-radius: 8px; resize: none; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; background: #fafafa;}
 .input-area textarea:focus { border-color: #1890ff; background: #fff;}
@@ -169,7 +158,6 @@ let quoteToMsg = null;
 let sessionsData = [];
 let ws = null;
 
-// 检查登录是否过期
 function isTokenValid() {
   if (!token || !expiresAt) return false;
   if (Date.now() > parseInt(expiresAt)) {
@@ -236,7 +224,6 @@ async function login() {
     if (checkFatalError(data)) return;
     if (res.ok) {
       token = data.token;
-      // 计算过期时间 (毫秒)
       expiresAt = Date.now() + (data.expiresIn * 1000);
       localStorage.setItem('bot_token', token);
       localStorage.setItem('bot_expires_at', expiresAt.toString());
@@ -253,13 +240,12 @@ function showApp() {
   loadSessions();
   initWebSocket();
 
-  // 定时检查过期
   setInterval(() => {
     if (!isTokenValid()) {
       alert('登录已过期，请重新登录');
       location.reload();
     }
-  }, 60000); // 每分钟检查一次
+  }, 60000);
 }
 
 function initWebSocket() {
@@ -344,17 +330,19 @@ async function loadMessages(sessionId, isPush) {
       }
 
       const isOut = m.type === 'outgoing';
+      // 👇 新增：判断是否是群聊场景且消息在 2 分钟内，且不是机器人发的
+      const isGroup = currentSession.is_group === 1;
       const isWithin2Mins = (now - m.timestamp) < 2 * 60 * 1000;
       const isWithin5Mins = (now - m.timestamp) < 5 * 60 * 1000;
 
+      // 撤回按钮：机器人自己的消息 OR 群内普通成员的消息（2分钟内）
+      const showRecallBtn = (isOut && isWithin2Mins) || (!isOut && isGroup && isWithin2Mins);
       const showReplyBtn = !isOut && isWithin5Mins;
-      const showRecallBtn = isOut && isWithin2Mins;
-      const showGroupOps = !isOut && currentSession.is_group === 1;
+      const showGroupOps = !isOut && isGroup;
 
-      // 👇 单聊时不显示乱码 bot ID
       let authorName = '';
       if (isOut) {
-        authorName = currentSession.is_group === 1 ? (currentSession.bot_openid || 'Bot (ID未知)') : 'Bot';
+        authorName = isGroup ? (currentSession.bot_openid || 'Bot (ID未知)') : 'Bot';
       } else {
         authorName = m.author_name || '用户';
       }
@@ -386,7 +374,6 @@ async function loadMessages(sessionId, isPush) {
         } catch (e) {}
       }
 
-      // 👇 图标化按钮
       return \`
       <div class="msg \${isOut ? 'outgoing' : 'incoming'}">
       <div class="msg-author">\${escapeHTML(authorName)}</div>
@@ -398,7 +385,7 @@ async function loadMessages(sessionId, isPush) {
       <div class="msg-meta">
       <span>\${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
       \${isOut && m.is_passive ? '<span style="color:#52c41a">(被动)</span>' : ''}
-      \${showRecallBtn ? \`<span class="action-btn" title="撤回" onclick="recallMessage('\${escapeHTML(m.msg_id)}')">🗑️</span>\` : ''}
+      \${showRecallBtn ? \`<span class="action-btn" title="撤回消息" onclick="recallMessage('\${escapeHTML(m.msg_id)}')">🗑️</span>\` : ''}
       \${showReplyBtn ? \`<span class="action-btn" title="回复" onclick="startReply('\${escapeHTML(m.msg_id)}', '\${escapeHTML(m.author_name)}')">↩️</span>\` : ''}
       <span class="action-btn" title="引用" onclick="startQuote('\${escapeHTML(m.msg_id)}', '\${escapeHTML(m.content)}')">💬</span>
       \${showGroupOps ? \`<span class="action-btn" title="@他" onclick="insertAtTag('\${escapeHTML(m.author_name)}')">@</span>\` : ''}
