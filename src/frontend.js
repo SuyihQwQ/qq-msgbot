@@ -13,12 +13,14 @@ export const FRONTEND_HTML = `
     .login-box input { width: 100%; padding: 10px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; }
     .login-box button { width: 100%; padding: 10px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; }
     
-    #kv-error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; text-align: left; }
-    .kv-error-box { background: #1e1e1e; padding: 40px; border-radius: 8px; border: 1px solid #ff4d4f; max-width: 600px; }
-    .kv-error-box h2 { color: #ff4d4f; margin-bottom: 20px; text-align: center;}
-    .kv-error-box p { line-height: 1.6; margin-bottom: 15px; font-size: 14px; color: #ccc; }
-    .kv-error-box code { background: #333; padding: 2px 6px; border-radius: 4px; color: #ffbaba; }
-    .kv-error-box ol { margin-left: 20px; color: #ccc; font-size: 14px; line-height: 1.8; }
+    /* 通用错误遮罩层 */
+    .error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; text-align: left; }
+    .error-box { background: #1e1e1e; padding: 40px; border-radius: 8px; border: 1px solid #ff4d4f; max-width: 600px; }
+    .error-box h2 { color: #ff4d4f; margin-bottom: 20px; text-align: center;}
+    .error-box p { line-height: 1.6; margin-bottom: 15px; font-size: 14px; color: #ccc; }
+    .error-box code { background: #333; padding: 2px 6px; border-radius: 4px; color: #ffbaba; font-family: monospace; }
+    .error-box ol { margin-left: 20px; color: #ccc; font-size: 14px; line-height: 1.8; }
+    .missing-list { color: #ff4d4f; font-weight: bold; font-size: 16px; display: block; margin: 10px 0; }
 
     #app { display: none; width: 100%; height: 100%; background: white; }
     .sidebar { width: 280px; background: #f7f7f7; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; }
@@ -47,8 +49,25 @@ export const FRONTEND_HTML = `
   </style>
 </head>
 <body>
-  <div id="kv-error-layer">
-    <div class="kv-error-box">
+  <!-- 1. 环境变量缺失遮罩层 -->
+  <div id="env-error-layer" class="error-layer">
+    <div class="error-box">
+      <h2>⚠️ 系统未就绪：缺少必需环境变量</h2>
+      <p>检测到以下必需的环境变量未配置：</p>
+      <span id="missing-envs" class="missing-list"></span>
+      <p><b>解决方法：</b></p>
+      <ol>
+        <li>前往 Cloudflare 控制台，进入当前 Worker 的 <b>Settings (设置) -> Variables (变量)</b>。</li>
+        <li>在 <b>Environment Variables (环境变量)</b> 处，点击 <b>Add variable (添加变量)</b>。</li>
+        <li>将上面缺失的变量名作为 Key，填入对应的值（请确保大小写一致）。</li>
+        <li>点击保存并刷新此页面。</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- 2. KV 未绑定遮罩层 -->
+  <div id="kv-error-layer" class="error-layer">
+    <div class="error-box">
       <h2>⚠️ 系统未就绪：缺少 KV 数据库</h2>
       <p>检测到尚未绑定 Cloudflare KV。本系统必须依赖 KV 才能存储聊天记录。</p>
       <p><b>解决方法：</b></p>
@@ -104,12 +123,25 @@ export const FRONTEND_HTML = `
       );
     }
 
-    function checkKvError(data) {
-      if (data && data.error === 'KV_NOT_BOUND') {
+    // 统一处理后端返回的致命错误
+    function checkFatalError(data) {
+      if (!data) return false;
+      
+      // 处理环境变量缺失
+      if (data.error === 'ENV_MISSING') {
+        document.getElementById('missing-envs').innerText = data.missing.join(', ');
+        document.getElementById('env-error-layer').style.display = 'flex';
+        if (pollInterval) clearInterval(pollInterval);
+        return true;
+      }
+      
+      // 处理 KV 未绑定
+      if (data.error === 'KV_NOT_BOUND') {
         document.getElementById('kv-error-layer').style.display = 'flex';
         if (pollInterval) clearInterval(pollInterval);
         return true;
       }
+      
       return false;
     }
 
@@ -122,14 +154,14 @@ export const FRONTEND_HTML = `
           body: JSON.stringify({ password: pwd }) 
         });
         const data = await res.json();
-        if (checkKvError(data)) return;
+        if (checkFatalError(data)) return;
         
         if (res.ok) {
           token = data.token;
           localStorage.setItem('bot_token', token);
           showApp();
         } else {
-          alert('密码错误');
+          alert(data.error || '密码错误');
         }
       } catch (e) {
         alert('网络请求失败');
@@ -153,7 +185,7 @@ export const FRONTEND_HTML = `
       try {
         const res = await fetch('/api/sessions', { headers: { 'Authorization': 'Bearer ' + token } });
         const data = await res.json();
-        if (checkKvError(data)) return;
+        if (checkFatalError(data)) return;
         
         if (res.status === 401) { localStorage.removeItem('bot_token'); location.reload(); return; }
         sessionsData = data;
@@ -182,7 +214,7 @@ export const FRONTEND_HTML = `
       try {
         const res = await fetch(\`/api/messages?id=\${sessionId}\`, { headers: { 'Authorization': 'Bearer ' + token } });
         const msgs = await res.json();
-        if (checkKvError(msgs)) return;
+        if (checkFatalError(msgs)) return;
         
         const msgEl = document.getElementById('messages');
         if (msgEl.dataset.count == msgs.length) return;
@@ -247,7 +279,7 @@ export const FRONTEND_HTML = `
           body: JSON.stringify(body)
         });
         const data = await res.json();
-        if (checkKvError(data)) return;
+        if (checkFatalError(data)) return;
         if (!res.ok) throw new Error(data.error);
         
         cancelReply();
