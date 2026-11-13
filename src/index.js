@@ -21,6 +21,18 @@ function hexToBytes(hex) {
 }
 function parseMessageContent(d) {
   let contentText = d.content || '';
+
+  // 1. 将 QQ 的表情标签转换为友好文字
+  // 匹配格式：<faceType=6,faceId="0",ext="...">
+  contentText = contentText.replace(/<faceType=[^>]+>/gi, '[表情]');
+  // 兼容其他可能的 face 格式
+  contentText = contentText.replace(/<face[^>]+>/gi, '[表情]');
+
+  // 2. 将 @ 标签转换为友好文字
+  // 匹配格式：<@5A461C4F541A3563FDF15191BE3C6B35> 或 <@!xxxx>
+  contentText = contentText.replace(/<@[^>]+>/gi, '@某人');
+
+  // 3. 处理非文本的附件（如纯图片、语音、视频）
   if (!contentText.trim() && d.attachments?.length > 0) {
     const tags = d.attachments.map(att => {
       if (att.content_type?.includes('image')) return '[图片]';
@@ -30,6 +42,7 @@ function parseMessageContent(d) {
     });
     contentText = tags.join(' ');
   }
+
   return contentText.trim() || '[不支持的消息类型]';
 }
 
