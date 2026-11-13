@@ -6,14 +6,12 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
 
-  // 👇 必须要有：用于存储图片和语音的 KV 绑定
   "kv_namespaces": [
     {
       "binding": "BOT_KV"
     }
   ],
 
-  // 👇 必须要有：用于存储聊天记录和会话的 D1 绑定
   "d1_databases": [
     {
       "binding": "DB",
@@ -21,7 +19,6 @@
     }
   ],
 
-  // 👇 必须要有：用于 WebSocket 实时推送的 DO 绑定
   "durable_objects": {
     "bindings": [
       {
@@ -31,7 +28,6 @@
     ]
   },
 
-  // 👇 必须要有：DO 迁移声明
   "migrations": [
     {
       "tag": "v1",
