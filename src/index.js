@@ -24,7 +24,10 @@ function parseMessageContent(d) {
   let contentText = d.content || '';
   contentText = contentText.replace(/<faceType=[^>]+>/gi, '[表情]');
   contentText = contentText.replace(/<face[^>]+>/gi, '[表情]');
-  contentText = contentText.replace(/<@!?([A-Za-z0-9]+)>/gi, (match, openid) => `@用户_${openid.substring(0, 6)}`);
+
+  // 👇 改动：@提及去掉截断，显示完整 ID
+  contentText = contentText.replace(/<@!?([A-Za-z0-9]+)>/gi, (match, openid) => `@${openid}`);
+
   return contentText.trim();
 }
 
@@ -70,15 +73,13 @@ export class ChatRoom extends DurableObject {
   }
 }
 
-// ================= 👇 KV 文件转存逻辑 =================
+// ================= KV 文件转存逻辑 =================
 async function processAttachments(env, attachments) {
   if (!attachments || attachments.length === 0) return null;
 
   const processed = [];
   for (const att of attachments) {
     const type = att.content_type || '';
-
-    // 👇 移除 video，只处理图片和语音
     const isMedia = type.startsWith('image/') || type.includes('voice');
 
     if (isMedia) {
@@ -87,14 +88,12 @@ async function processAttachments(env, attachments) {
         if (!fileRes.ok) throw new Error('下载失败');
 
         const buffer = await fileRes.arrayBuffer();
-        // 限制大小不超过 2MB
         if (buffer.byteLength > 2 * 1024 * 1024) {
           processed.push({ ...att, url: '', error: '文件过大(>2MB)，已放弃转存' });
           continue;
         }
 
         const fileId = crypto.randomUUID();
-        // 存入 KV，TTL 7天
         await env.BOT_KV.put(`file:${fileId}`, buffer, { expirationTtl: 604800 });
         processed.push({ ...att, url: `/api/file/${fileId}` });
       } catch (err) {
@@ -102,7 +101,6 @@ async function processAttachments(env, attachments) {
         processed.push({ ...att, url: '', error: '转存失败或链接已过期' });
       }
     } else {
-      // 视频和其他文件不转存
       const fileType = type.includes('video') ? '视频' : '普通文件';
       processed.push({ ...att, url: '', error: `${fileType}不支持转存` });
     }
@@ -169,15 +167,15 @@ async function processIncomingMessage(payload, env, ctx) {
     const isGroup = payload.t.startsWith('GROUP');
     const sessionId = isGroup ? d.group_openid : d.author?.user_openid;
     const authorOpenid = isGroup ? d.author?.member_openid : d.author?.user_openid;
-    const authorName = authorOpenid ? `用户_${authorOpenid.substring(0, 6)}` : '未知用户';
+
+    // 👇 改动：显示完整发送者 ID
+    const authorName = authorOpenid ? authorOpenid : '未知用户';
+
     if (!sessionId) return;
 
     const safeContent = parseMessageContent(d);
-
-    // 处理附件并转存 KV
     const attachmentsData = await processAttachments(env, d.attachments);
 
-    // 会话预览
     let previewContent = safeContent;
     if (!previewContent && d.attachments) {
       const type = d.attachments[0].content_type || '';
@@ -190,6 +188,7 @@ async function processIncomingMessage(payload, env, ctx) {
 
     const now = Date.now();
 
+    // 更新或插入会话。注意这里 name 字段存的是完整群 ID 或用户 ID
     await env.DB.prepare(
       `INSERT INTO sessions (id, is_group, name, last_active, last_message) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_active = excluded.last_active, last_message = excluded.last_message`
     ).bind(sessionId, isGroup ? 1 : 0, isGroup ? `群聊 (${sessionId})` : `用户 (${authorName})`, now, previewContent).run();

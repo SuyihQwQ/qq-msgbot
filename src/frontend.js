@@ -32,17 +32,20 @@ body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; d
 .session-list { flex: 1; overflow-y: auto; }
 .session-item { padding: 15px; border-bottom: 1px solid #e0e0e0; cursor: pointer; transition: background 0.2s; }
 .session-item:hover, .session-item.active { background: #e6f7ff; }
-.session-name { font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #333; }
+
+/* 👇 新增 word-break，让长 ID 自动换行 */
+.session-name { font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #333; word-break: break-all; }
+
 .session-preview { font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-area { flex: 1; display: flex; flex-direction: column; background: #fff; }
-.chat-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: bold; display: flex; justify-content: space-between; align-items: center;}
+.chat-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: bold; display: flex; justify-content: space-between; align-items: center; word-break: break-all; }
 .messages { flex: 1; overflow-y: auto; padding: 20px; background: #fafafa; display: flex; flex-direction: column; }
 
 .msg { margin-bottom: 15px; display: flex; flex-direction: column; max-width: 75%; }
 .msg.incoming { align-self: flex-start; }
 .msg.outgoing { align-self: flex-end; align-items: flex-end; }
 
-.msg-author { font-size: 12px; color: #888; margin-bottom: 4px; padding-left: 4px;}
+.msg-author { font-size: 12px; color: #888; margin-bottom: 4px; padding-left: 4px; word-break: break-all;}
 .msg.outgoing .msg-author { display: none; }
 
 .msg-bubble { padding: 10px 15px; border-radius: 8px; font-size: 14px; word-wrap: break-word; position: relative; }
@@ -112,7 +115,7 @@ body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; d
 <div class="chat-area">
 <div class="chat-header">
 <span id="chat-title">请选择会话</span>
-<span style="font-size: 12px; color: #888;">当前模式: <span id="mode-label">主动消息</span></span>
+<span style="font-size: 12px; color: #888; flex-shrink: 0; margin-left: 10px;">当前模式: <span id="mode-label">主动消息</span></span>
 </div>
 <div class="reply-tip" id="reply-tip">
 正在回复消息... <span onclick="cancelReply()">取消回复</span>
@@ -216,9 +219,10 @@ async function loadSessions() {
     sessionsData = data;
 
     const listEl = document.getElementById('session-list');
+    // 👇 改动：移除 s.id.substring(0,8) 的截断，直接显示完整 s.id
     listEl.innerHTML = sessionsData.map(s => \`
     <div class="session-item \${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('\${escapeHTML(s.id)}')">
-    <div class="session-name">\${s.is_group ? '👥 群聊' : '👤 私聊'} - \${escapeHTML(s.id.substring(0,8))}...</div>
+    <div class="session-name">\${s.is_group ? '👥 群聊' : '👤 私聊'} - \${escapeHTML(s.id)}</div>
     <div class="session-preview">\${escapeHTML(s.last_message || '暂无消息')}</div>
     </div>
     \`).join('');
@@ -228,7 +232,8 @@ async function loadSessions() {
 async function selectSession(id) {
   if (currentSession?.id === id) return;
   currentSession = sessionsData.find(s => s.id === id);
-  document.getElementById('chat-title').innerText = (currentSession.is_group ? '群聊' : '私聊') + ' - ' + id.substring(0,12);
+  // 👇 改动：移除 id.substring(0,12) 的截断，直接显示完整 id
+  document.getElementById('chat-title').innerText = (currentSession.is_group ? '群聊' : '私聊') + ' - ' + id;
   cancelReply();
   document.getElementById('messages').dataset.count = -1;
   await loadMessages(id, false);
