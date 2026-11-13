@@ -1,7 +1,11 @@
 import { FRONTEND_HTML } from './frontend.js';
+import { createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
 
 const QQ_TOKEN_URL = 'https://api.bot.qq.com/app/getAppAccessToken';
 const QQ_SEND_BASE = 'https://api.sgroup.qq.com/v2';
+
+// PKCS#8 头部：将 32 字节 raw seed 包装为标准 PKCS#8 私钥
+const PKCS8_HEADER = Buffer.from('302e020100300506032b657004220420', 'hex');
 
 // ================= 工具函数 =================
 function buildEd25519Seed(secret) {
@@ -33,40 +37,11 @@ function parseMessageContent(d) {
   return contentText.trim() || '[不支持的消息类型]';
 }
 
-// ================= 👇 原生 Web Crypto Ed25519 密钥导入 =================
-// PKCS#8 头部：将 32 字节 raw seed 包装为标准 PKCS#8 私钥
-const PKCS8_HEADER = new Uint8Array([
-  0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06,
-  0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20
-]);
-
-async function importPrivateKey(secret) {
+// ================= 👇 node:crypto 密钥构造 =================
+function makePrivateKey(secret) {
   const seed = buildEd25519Seed(secret);
-  const pkcs8 = new Uint8Array(PKCS8_HEADER.length + seed.length);
-  pkcs8.set(PKCS8_HEADER);
-  pkcs8.set(seed, PKCS8_HEADER.length);
-  return crypto.subtle.importKey(
-    'pkcs8',
-    pkcs8,
-    { name: 'Ed25519' },
-    false,
-    ['sign']
-  );
-}
-
-async function importPublicKey(secret) {
-  const privateKey = await importPrivateKey(secret);
-  const jwk = await crypto.subtle.exportKey('jwk', privateKey);
-  // 清理私钥字段，转为公钥 JWK
-  delete jwk.d;
-  jwk.key_ops = ['verify'];
-  return crypto.subtle.importKey(
-    'jwk',
-    jwk,
-    { name: 'Ed25519' },
-    false,
-    ['verify']
-  );
+  const pkcs8 = Buffer.concat([PKCS8_HEADER, Buffer.from(seed)]);
+  return createPrivateKey({ key: pkcs8, format: 'der', type: 'pkcs8' });
 }
 
 // ================= QQ API 逻辑 =================
@@ -109,28 +84,23 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   return data;
 }
 
-// ================= 👇 原生 Web Crypto 签名与验签 =================
+// ================= 👇 node:crypto 签名与验签 =================
 async function handleValidation(plainToken, eventTs, env) {
-  const privateKey = await importPrivateKey(env.QQ_CLIENT_SECRET);
-  // 官方要求：event_ts + plain_token
-  const msg = new TextEncoder().encode(eventTs + plainToken);
-  const signature = await crypto.subtle.sign('Ed25519', privateKey, msg);
+  const privateKey = makePrivateKey(env.QQ_CLIENT_SECRET);
+  const msg = Buffer.from(eventTs + plainToken, 'utf-8');
+  // Ed25519 内部处理 SHA-512，algorithm 传 null
+  const signature = sign(null, msg, privateKey);
   return Response.json({
     plain_token: plainToken,
-    signature: bytesToHex(new Uint8Array(signature)),
+    signature: signature.toString('hex'),
   });
 }
 
 async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
-  const publicKey = await importPublicKey(env.QQ_CLIENT_SECRET);
-  const msg = new TextEncoder().encode(timestamp);
-  const message = new Uint8Array([...msg, ...new Uint8Array(rawBody)]);
-  return crypto.subtle.verify(
-    'Ed25519',
-    publicKey,
-    hexToBytes(signatureHex),
-    message
-  );
+  const privateKey = makePrivateKey(env.QQ_CLIENT_SECRET);
+  const publicKey = createPublicKey(privateKey);
+  const msg = Buffer.concat([Buffer.from(timestamp, 'utf-8'), Buffer.from(rawBody)]);
+  return verify(null, msg, publicKey, Buffer.from(signatureHex, 'hex'));
 }
 
 // ================= 异步处理 QQ 消息 =================
