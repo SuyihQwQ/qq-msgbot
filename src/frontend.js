@@ -7,12 +7,14 @@ export const FRONTEND_HTML = `
 <title>QQ MsgBot 控制台</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; height: 100vh; display: flex; color: #333; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; height: 100vh; display: flex; color: #333; overflow: hidden; }
 
+/* Loading */
 #loading-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; font-size: 15px; color: #666; flex-direction: column; gap: 12px;}
 .spinner { width: 36px; height: 36px; border: 3px solid #d9d9d9; border-top-color: #1890ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 登录 */
 #login-page { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; background: #f0f2f5;}
 .login-box { background: white; padding: 40px 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); width: 320px; }
 .login-box h2 { text-align: center; margin-bottom: 25px; font-weight: 600; color: #1a1a1a; }
@@ -21,6 +23,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .login-box button { width: 100%; padding: 12px; background: #1890ff; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; transition: background 0.2s;}
 .login-box button:hover { background: #40a9ff; }
 
+/* 错误遮罩 */
 .error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
 .error-box { background: #fff; padding: 40px; border-radius: 12px; border-top: 4px solid #ff4d4f; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
 .error-box h2 { color: #ff4d4f; margin-bottom: 20px; text-align: center; font-size: 20px;}
@@ -29,8 +32,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .error-box ol { margin-left: 20px; color: #555; font-size: 14px; line-height: 1.8; }
 .missing-list { color: #ff4d4f; font-weight: bold; font-size: 16px; display: block; margin: 10px 0; text-align: center;}
 
+/* 主界面 */
 #app { display: none; width: 100%; height: 100%; background: white; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
 
+/* 侧边栏 */
 .sidebar { width: 300px; background: #f7f9fa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; }
 .sidebar-header { padding: 20px 15px; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 18px; background: #fff; color: #1a1a1a; display: flex; align-items: center; gap: 8px;}
 .session-list { flex: 1; overflow-y: auto; padding: 10px; }
@@ -42,10 +47,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .session-item:hover .delete-session-btn { opacity: 1; }
 .session-item.active { background: #e6f7ff; border-left: 4px solid #1890ff; padding-left: 11px;}
 
+/* 聊天区 */
 .chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative;}
 .chat-header { padding: 20px 25px; border-bottom: 1px solid #e8e8e8; font-weight: 600; display: flex; justify-content: space-between; align-items: center; background: #fff; color: #1a1a1a; z-index: 10;}
 .messages { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; scroll-behavior: smooth;}
 
+/* 气泡 */
 .msg { margin-bottom: 20px; display: flex; flex-direction: column; max-width: 75%; }
 .msg.incoming { align-self: flex-start; }
 .msg.outgoing { align-self: flex-end; align-items: flex-end; }
@@ -54,11 +61,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .msg.incoming .msg-bubble { background: #fff; color: #333; border-top-left-radius: 2px;}
 .msg.outgoing .msg-bubble { background: #1890ff; color: #fff; border-top-right-radius: 2px;}
 
+/* 引用与系统消息 */
 .msg.system { align-self: center; align-items: center; max-width: 90%; margin: 15px 0;}
 .msg-system-text { font-size: 12px; color: #888; background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px; text-align: center; }
 .quote-box { background: rgba(0,0,0,0.04); border-left: 3px solid #ccc; padding: 6px 10px; margin-bottom: 10px; font-size: 12px; color: #666; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
 .msg.outgoing .quote-box { background: rgba(255,255,255,0.15); border-left-color: #fff; color: rgba(255,255,255,0.85); }
 
+/* 底部元数据及操作栏 */
 .msg-meta { font-size: 12px; color: #b3b3b3; margin-top: 6px; display: flex; align-items: center; gap: 10px; opacity: 0; transition: opacity 0.2s;}
 .msg:hover .msg-meta { opacity: 1; }
 .msg.outgoing .msg-meta { justify-content: flex-end; }
@@ -67,6 +76,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .action-btn:hover { background: #f0f0f0; border-color: #d9d9d9; transform: translateY(-1px);}
 .msg.outgoing .action-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; }
 
+/* 附件 */
 .attachment-img-box { margin-top: 8px; max-width: 100%; }
 .chat-img { max-width: 220px; max-height: 220px; border-radius: 8px; cursor: pointer; object-fit: cover; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1);}
 .attachment-error { display: inline-block; font-size: 12px; color: #999; background: #f5f5f5; padding: 4px 8px; border-radius: 4px; font-style: italic; margin-top: 5px;}
@@ -74,6 +84,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .attachment-link:hover { background: #f0f7ff; }
 .msg.outgoing .attachment-link { background: rgba(255,255,255,0.15); border-color: transparent; color: #fff;}
 
+/* 输入区 */
 .input-area { padding: 15px 25px; background: #fff; border-top: 1px solid #e8e8e8; display: flex; gap: 15px; align-items: flex-end;}
 .input-area textarea { flex: 1; height: 60px; padding: 12px 15px; border: 1px solid #d9d9d9; border-radius: 8px; resize: none; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; background: #fafafa;}
 .input-area textarea:focus { border-color: #1890ff; background: #fff;}
@@ -83,6 +94,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 
 .reply-tip { font-size: 13px; padding: 8px 25px; display: none; background: #fffbe6; border-bottom: 1px solid #ffe58f; color: #fa8c16; display: flex; justify-content: space-between;}
 .reply-tip span.cancel { cursor: pointer; color: #1890ff; font-weight: 500;}
+
+/* 👇 现代化弹窗与 Toast 提示组件 👇 */
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); background: rgba(0,0,0,0.75); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 14px; z-index: 10000; opacity: 0; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55); pointer-events: none; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(4px);}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { background: rgba(82, 196, 26, 0.9); }
+.toast.error { background: rgba(255, 77, 79, 0.9); }
+
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10001; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(2px);}
+.modal-overlay.show { opacity: 1; pointer-events: auto; }
+.modal-box { background: #fff; border-radius: 12px; width: 320px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transform: scale(0.9); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.modal-overlay.show .modal-box { transform: scale(1); }
+.modal-title { font-size: 16px; font-weight: 600; margin-bottom: 15px; color: #333; }
+.modal-content { font-size: 14px; color: #555; margin-bottom: 20px; line-height: 1.5; word-break: break-all;}
+.modal-input { width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; margin-bottom: 20px; outline: none; font-size: 14px; }
+.modal-input:focus { border-color: #1890ff; }
+.modal-btns { display: flex; justify-content: flex-end; gap: 10px; }
+.modal-btn { padding: 8px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; border: none; transition: 0.2s; }
+.modal-btn.cancel { background: #f0f0f0; color: #333; }
+.modal-btn.cancel:hover { background: #e0e0e0; }
+.modal-btn.confirm { background: #1890ff; color: #fff; }
+.modal-btn.confirm:hover { background: #40a9ff; }
+.modal-btn.danger { background: #ff4d4f; color: #fff; }
+.modal-btn.danger:hover { background: #ff7875; }
 </style>
 </head>
 <body>
@@ -149,6 +183,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 </div>
 </div>
 
+<!-- 👇 自定义 UI 组件容器 👇 -->
+<div id="toast" class="toast"></div>
+
+<div id="modal" class="modal-overlay">
+<div class="modal-box">
+<div class="modal-title" id="modal-title">提示</div>
+<div class="modal-content" id="modal-content">内容</div>
+<input type="text" id="modal-input" class="modal-input" style="display:none;">
+<div class="modal-btns">
+<button class="modal-btn cancel" id="modal-btn-cancel" onclick="closeModal(false)">取消</button>
+<button class="modal-btn confirm" id="modal-btn-confirm" onclick="closeModal(true)">确定</button>
+</div>
+</div>
+</div>
+
 <script>
 let token = localStorage.getItem('bot_token');
 let expiresAt = localStorage.getItem('bot_expires_at');
@@ -157,7 +206,64 @@ let replyToMsg = null;
 let quoteToMsg = null;
 let sessionsData = [];
 let ws = null;
+let modalResolve = null;
 
+// ================= 自定义 UI 逻辑 =================
+let toastTimeout = null;
+function showToast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.innerText = msg;
+  el.className = 'toast show ' + type;
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    el.classList.remove('show');
+  }, 3000);
+}
+
+function showModal({ title = '提示', content = '', input = false, defaultValue = '', isDanger = false, showCancel = true }) {
+  return new Promise((resolve) => {
+    modalResolve = resolve;
+    document.getElementById('modal-title').innerText = title;
+    document.getElementById('modal-content').innerText = content;
+
+    const inputEl = document.getElementById('modal-input');
+    if (input) {
+      inputEl.style.display = 'block';
+      inputEl.value = defaultValue;
+      setTimeout(() => inputEl.focus(), 100);
+    } else {
+      inputEl.style.display = 'none';
+    }
+
+    const cancelBtn = document.getElementById('modal-btn-cancel');
+    cancelBtn.style.display = showCancel ? 'block' : 'none';
+
+    const confirmBtn = document.getElementById('modal-btn-confirm');
+    confirmBtn.className = 'modal-btn ' + (isDanger ? 'danger' : 'confirm');
+
+    document.getElementById('modal').classList.add('show');
+
+    // 支持回车确认
+    if (input) {
+      inputEl.onkeydown = (e) => { if (e.key === 'Enter') closeModal(true); };
+    }
+  });
+}
+
+function closeModal(result) {
+  document.getElementById('modal').classList.remove('show');
+  if (modalResolve) {
+    if (result) {
+      const inputEl = document.getElementById('modal-input');
+      modalResolve(inputEl.style.display === 'block' ? inputEl.value : true);
+    } else {
+      modalResolve(false);
+    }
+    modalResolve = null;
+  }
+}
+
+// ================= 核心业务逻辑 =================
 function isTokenValid() {
   if (!token || !expiresAt) return false;
   if (Date.now() > parseInt(expiresAt)) {
@@ -230,8 +336,8 @@ async function login() {
 
       document.getElementById('login-page').style.display = 'none';
       showApp();
-    } else alert(data.error || '密码错误');
-  } catch (e) { alert('网络请求失败'); }
+    } else showToast(data.error || '密码错误', 'error');
+  } catch (e) { showToast('网络请求失败', 'error'); }
 }
 
 function showApp() {
@@ -242,8 +348,8 @@ function showApp() {
 
   setInterval(() => {
     if (!isTokenValid()) {
-      alert('登录已过期，请重新登录');
-      location.reload();
+      showModal({ title: '登录已过期', content: '您的登录状态已过期，请重新登录。', showCancel: false })
+      .then(() => location.reload());
     }
   }, 60000);
 }
@@ -285,7 +391,9 @@ async function loadSessions() {
 }
 
 async function deleteSession(id) {
-  if (!confirm('确定要删除该会话及其所有本地消息记录吗？')) return;
+  const confirmed = await showModal({ title: '删除会话', content: '确定要删除该会话及其所有本地消息记录吗？', isDanger: true });
+  if (!confirmed) return;
+
   try {
     const res = await fetch('/api/delete_session', {
       method: 'POST',
@@ -299,7 +407,8 @@ async function deleteSession(id) {
       document.getElementById('chat-title').innerText = '请选择左侧会话';
     }
     loadSessions();
-  } catch (e) { alert(e.message); }
+    showToast('删除成功', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
 async function selectSession(id) {
@@ -330,12 +439,10 @@ async function loadMessages(sessionId, isPush) {
       }
 
       const isOut = m.type === 'outgoing';
-      // 👇 新增：判断是否是群聊场景且消息在 2 分钟内，且不是机器人发的
       const isGroup = currentSession.is_group === 1;
       const isWithin2Mins = (now - m.timestamp) < 2 * 60 * 1000;
       const isWithin5Mins = (now - m.timestamp) < 5 * 60 * 1000;
 
-      // 撤回按钮：机器人自己的消息 OR 群内普通成员的消息（2分钟内）
       const showRecallBtn = (isOut && isWithin2Mins) || (!isOut && isGroup && isWithin2Mins);
       const showReplyBtn = !isOut && isWithin5Mins;
       const showGroupOps = !isOut && isGroup;
@@ -438,7 +545,9 @@ function cancelReply() {
 }
 
 async function recallMessage(msgId) {
-  if (!confirm('确定要撤回这条消息吗？')) return;
+  const confirmed = await showModal({ title: '撤回消息', content: '确定要撤回这条消息吗？', isDanger: true });
+  if (!confirmed) return;
+
   try {
     const res = await fetch('/api/recall', {
       method: 'POST',
@@ -449,14 +558,23 @@ async function recallMessage(msgId) {
     if (!res.ok) throw new Error(data.error);
     document.getElementById('messages').dataset.count = -1;
     loadMessages(currentSession.id, false);
-  } catch (e) { alert(e.message); }
+    showToast('撤回成功', 'success');
+  } catch (e) {
+    showModal({ title: '撤回失败', content: e.message, showCancel: false });
+  }
 }
 
 async function muteMember(memberOpenid) {
-  const mins = prompt(\`请输入要禁言用户 \${memberOpenid} 的分钟数：\`, '10');
-  if (mins === null) return;
+  const mins = await showModal({
+    title: '禁言成员',
+    content: \`请输入要禁言用户 \${memberOpenid} 的分钟数：\`,
+    input: true,
+    defaultValue: '10'
+  });
+
+  if (!mins) return;
   const durationMins = parseInt(mins, 10);
-  if (isNaN(durationMins) || durationMins <= 0) return alert('请输入有效的分钟数');
+  if (isNaN(durationMins) || durationMins <= 0) return showToast('请输入有效的分钟数', 'error');
 
   try {
     const res = await fetch('/api/mute', {
@@ -466,28 +584,43 @@ async function muteMember(memberOpenid) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    alert(\`禁言成功，时长 \${durationMins} 分钟\`);
-  } catch (e) { alert(e.message); }
+    showToast(\`禁言成功，时长 \${durationMins} 分钟\`, 'success');
+  } catch (e) {
+    showModal({ title: '禁言失败', content: e.message, showCancel: false });
+  }
 }
 
 async function kickMember(memberOpenid) {
-  if (!confirm(\`确定要将用户 \${memberOpenid} 踢出群聊吗？\`)) return;
-  const addToBlacklist = confirm('是否同时加入群黑名单？点击"确定"加入，点击"取消"仅踢出');
+  const confirmed = await showModal({
+    title: '踢出群聊',
+    content: \`确定要将用户 \${memberOpenid} 踢出群聊吗？\`,
+    isDanger: true
+  });
+  if (!confirmed) return;
+
+  const addToBlacklist = await showModal({
+    title: '加入黑名单',
+    content: '是否同时将该用户加入群黑名单？',
+    isDanger: true
+  });
+
   try {
     const res = await fetch('/api/kick', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid, addToBlacklist: addToBlacklist })
+      body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid, addToBlacklist: !!addToBlacklist })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    alert('踢人操作成功');
-  } catch (e) { alert(e.message); }
+    showToast('踢人操作成功', 'success');
+  } catch (e) {
+    showModal({ title: '踢人失败', content: e.message, showCancel: false });
+  }
 }
 
 async function sendMessage() {
-  if (!currentSession) return alert('请先选择会话');
-  if (!isTokenValid()) return alert('登录已过期');
+  if (!currentSession) return showToast('请先选择会话', 'error');
+  if (!isTokenValid()) return showToast('登录已过期', 'error');
 
   const content = document.getElementById('msg-input').value.trim();
   if (!content) return;
@@ -517,7 +650,11 @@ async function sendMessage() {
     if (!res.ok) throw new Error(data.error);
     cancelReply();
   } catch (e) {
-    alert(e.message);
+    showToast(e.message, 'error');
+    // 如果发送失败，把内容还回输入框
+    if (!document.getElementById('msg-input').value) {
+      document.getElementById('msg-input').value = content;
+    }
   } finally {
     btn.disabled = false; btn.innerText = '发送';
   }
