@@ -1,4 +1,3 @@
-import * as ed from '@noble/ed25519';
 import { FRONTEND_HTML } from './frontend.js';
 
 const QQ_TOKEN_URL = 'https://api.bot.qq.com/app/getAppAccessToken';
@@ -32,6 +31,42 @@ function parseMessageContent(d) {
     contentText = tags.join(' ');
   }
   return contentText.trim() || '[不支持的消息类型]';
+}
+
+// ================= 👇 原生 Web Crypto Ed25519 密钥导入 =================
+// PKCS#8 头部：将 32 字节 raw seed 包装为标准 PKCS#8 私钥
+const PKCS8_HEADER = new Uint8Array([
+  0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06,
+  0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20
+]);
+
+async function importPrivateKey(secret) {
+  const seed = buildEd25519Seed(secret);
+  const pkcs8 = new Uint8Array(PKCS8_HEADER.length + seed.length);
+  pkcs8.set(PKCS8_HEADER);
+  pkcs8.set(seed, PKCS8_HEADER.length);
+  return crypto.subtle.importKey(
+    'pkcs8',
+    pkcs8,
+    { name: 'Ed25519' },
+    false,
+    ['sign']
+  );
+}
+
+async function importPublicKey(secret) {
+  const privateKey = await importPrivateKey(secret);
+  const jwk = await crypto.subtle.exportKey('jwk', privateKey);
+  // 清理私钥字段，转为公钥 JWK
+  delete jwk.d;
+  jwk.key_ops = ['verify'];
+  return crypto.subtle.importKey(
+    'jwk',
+    jwk,
+    { name: 'Ed25519' },
+    false,
+    ['verify']
+  );
 }
 
 // ================= QQ API 逻辑 =================
@@ -74,20 +109,28 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   return data;
 }
 
-// 👇 核心修复：使用异步签名，完美适配 Workers
+// ================= 👇 原生 Web Crypto 签名与验签 =================
 async function handleValidation(plainToken, eventTs, env) {
-  const seed = buildEd25519Seed(env.QQ_CLIENT_SECRET);
+  const privateKey = await importPrivateKey(env.QQ_CLIENT_SECRET);
+  // 官方要求：event_ts + plain_token
   const msg = new TextEncoder().encode(eventTs + plainToken);
-  const signature = await ed.signAsync(msg, seed);
-  return Response.json({ plain_token: plainToken, signature: bytesToHex(signature) });
+  const signature = await crypto.subtle.sign('Ed25519', privateKey, msg);
+  return Response.json({
+    plain_token: plainToken,
+    signature: bytesToHex(new Uint8Array(signature)),
+  });
 }
 
 async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
-  const seed = buildEd25519Seed(env.QQ_CLIENT_SECRET);
-  const publicKey = await ed.getPublicKeyAsync(seed);
+  const publicKey = await importPublicKey(env.QQ_CLIENT_SECRET);
   const msg = new TextEncoder().encode(timestamp);
   const message = new Uint8Array([...msg, ...new Uint8Array(rawBody)]);
-  return ed.verifyAsync(hexToBytes(signatureHex), message, publicKey);
+  return crypto.subtle.verify(
+    'Ed25519',
+    publicKey,
+    hexToBytes(signatureHex),
+    message
+  );
 }
 
 // ================= 异步处理 QQ 消息 =================
@@ -123,19 +166,15 @@ async function processIncomingMessage(payload, env) {
 // ================= API 路由 =================
 async function handleApi(request, env, path) {
   try {
-    // 健康检查接口，无需鉴权，用于前端初始化检查
     if (path === '/api/health' && request.method === 'GET') {
       const missingEnvs = [];
       if (!env.QQ_APP_ID) missingEnvs.push('QQ_APP_ID');
       if (!env.QQ_CLIENT_SECRET) missingEnvs.push('QQ_CLIENT_SECRET');
       if (!env.WEB_PASSWORD) missingEnvs.push('WEB_PASSWORD');
 
-      if (missingEnvs.length > 0) {
-        return Response.json({ error: 'ENV_MISSING', missing: missingEnvs }, { status: 500 });
-      }
-      if (!env.BOT_KV) {
-        return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
-      }
+      if (missingEnvs.length > 0) return Response.json({ error: 'ENV_MISSING', missing: missingEnvs }, { status: 500 });
+      if (!env.BOT_KV) return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
+      
       return Response.json({ ok: true });
     }
 
@@ -188,7 +227,9 @@ async function handleQQWebhook(request, env, ctx) {
     const rawBody = await request.arrayBuffer();
     const payload = JSON.parse(new TextDecoder().decode(rawBody));
 
-    if (payload.op === 13 && payload.d?.plain_token) return handleValidation(payload.d.plain_token, payload.d.event_ts, env);
+    if (payload.op === 13 && payload.d?.plain_token) {
+      return await handleValidation(payload.d.plain_token, payload.d.event_ts, env);
+    }
 
     const signature = request.headers.get('X-Signature-Ed25519');
     const timestamp = request.headers.get('X-Signature-Timestamp');
@@ -206,6 +247,7 @@ async function handleQQWebhook(request, env, ctx) {
     }
     return Response.json({ ok: true });
   } catch (e) {
+    console.error('【Webhook 异常】', e.message, e.stack);
     return new Response('Bad Request', { status: 400 });
   }
 }
