@@ -13,7 +13,6 @@ export const FRONTEND_HTML = `
     .login-box input { width: 100%; padding: 10px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; }
     .login-box button { width: 100%; padding: 10px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; }
     
-    /* 未绑定提示遮罩层 */
     #kv-error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; color: white; text-align: left; }
     .kv-error-box { background: #1e1e1e; padding: 40px; border-radius: 8px; border: 1px solid #ff4d4f; max-width: 600px; }
     .kv-error-box h2 { color: #ff4d4f; margin-bottom: 20px; text-align: center;}
