@@ -1,18 +1,17 @@
 import * as ed from '@noble/ed25519';
-import { sha512 } from '@noble/hashes/sha512';
 import { FRONTEND_HTML } from './frontend.js';
-
-// 👈 核心修复：适配 v1 版本的同步注入方式
-ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
 
 const QQ_TOKEN_URL = 'https://api.bot.qq.com/app/getAppAccessToken';
 const QQ_SEND_BASE = 'https://api.sgroup.qq.com/v2';
 
 // ================= 工具函数 =================
-function concatBytes(a, b) {
-  const out = new Uint8Array(a.length + b.length);
-  out.set(a); out.set(b, a.length);
-  return out;
+// buildEd25519Seed 等工具函数保持不变
+function buildEd25519Seed(secret) {
+  if (!secret) throw new Error('QQ_CLIENT_SECRET is empty');
+  let seed = new TextEncoder().encode(secret);
+  const concat = (a, b) => { const o = new Uint8Array(a.length + b.length); o.set(a); o.set(b, a.length); return o; };
+  while (seed.length < 32) seed = concat(seed, seed);
+  return seed.slice(0, 32);
 }
 function hexToBytes(hex) {
   const bytes = new Uint8Array(hex.length / 2);
@@ -22,15 +21,9 @@ function hexToBytes(hex) {
 function bytesToHex(bytes) {
   return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 }
-function buildEd25519Seed(secret) {
-  if (!secret) throw new Error('QQ_CLIENT_SECRET is empty');
-  let seed = new TextEncoder().encode(secret);
-  while (seed.length < 32) seed = concatBytes(seed, seed);
-  return seed.slice(0, 32);
-}
 function parseMessageContent(d) {
   let contentText = d.content || '';
-  if (!contentText.trim() && d.attachments && d.attachments.length > 0) {
+  if (!contentText.trim() && d.attachments?.length > 0) {
     const tags = d.attachments.map(att => {
       if (att.content_type?.includes('image')) return '[图片]';
       if (att.content_type?.includes('voice')) return '[语音]';
@@ -39,8 +32,7 @@ function parseMessageContent(d) {
     });
     contentText = tags.join(' ');
   }
-  if (!contentText.trim()) contentText = '[不支持的消息类型]';
-  return contentText;
+  return contentText.trim() || '[不支持的消息类型]';
 }
 
 // ================= QQ API 逻辑 =================
@@ -64,7 +56,7 @@ async function getAccessToken(env) {
     tokenExpiresAt = now + (data.expires_in || 7200) * 1000;
     return data.access_token;
   })();
-  try { return await tokenPromise; } 
+  try { return await tokenPromise; }
   catch (e) { tokenPromise = null; throw e; }
 }
 
@@ -83,17 +75,20 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   return data;
 }
 
+// 👇 核心修改：改用异步签名与验签 API
 async function handleValidation(plainToken, eventTs, env) {
   const seed = buildEd25519Seed(env.QQ_CLIENT_SECRET);
   const msg = new TextEncoder().encode(eventTs + plainToken);
-  return Response.json({ plain_token: plainToken, signature: bytesToHex(ed.sign(msg, seed)) });
+  const signature = await ed.signAsync(msg, seed); // 异步签名
+  return Response.json({ plain_token: plainToken, signature: bytesToHex(signature) });
 }
 
 async function verifyQQSignature(env, signatureHex, timestamp, rawBody) {
   const seed = buildEd25519Seed(env.QQ_CLIENT_SECRET);
-  const publicKey = ed.getPublicKey(seed);
-  const message = concatBytes(new TextEncoder().encode(timestamp), new Uint8Array(rawBody));
-  return ed.verify(hexToBytes(signatureHex), message, publicKey);
+  const publicKey = await ed.getPublicKeyAsync(seed); // 异步获取公钥
+  const msg = new TextEncoder().encode(timestamp);
+  const message = new Uint8Array([...msg, ...new Uint8Array(rawBody)]);
+  return ed.verifyAsync(hexToBytes(signatureHex), message, publicKey); // 异步验签
 }
 
 // ================= 异步处理 QQ 消息 =================
@@ -138,10 +133,7 @@ async function handleApi(request, env, path) {
     const authHeader = request.headers.get('Authorization');
     if (authHeader !== `Bearer ${env.WEB_PASSWORD}`) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // 拦截未绑定 KV 的请求
-    if (!env.BOT_KV) {
-      return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
-    }
+    if (!env.BOT_KV) return Response.json({ error: 'KV_NOT_BOUND' }, { status: 500 });
 
     if (path === '/api/sessions' && request.method === 'GET') {
       const list = await env.BOT_KV.list({ prefix: 'session:' });
@@ -196,7 +188,7 @@ async function handleQQWebhook(request, env, ctx) {
       if (!env.BOT_KV) {
         console.error('收到消息但未绑定 KV，无法存储');
       } else {
-        ctx.waitUntil(processIncomingMessage(payload, env)); 
+        ctx.waitUntil(processIncomingMessage(payload, env));
       }
     }
     return Response.json({ ok: true });
