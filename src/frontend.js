@@ -280,6 +280,7 @@ let currentSession = null;
 let replyToMsg = null;
 let quoteToMsg = null;
 let sessionsData = [];
+let currentMsgs = []; // 👈 新增：缓存当前渲染的消息
 let ws = null;
 
 let replyBaseTime = 0;
@@ -445,26 +446,26 @@ async function loadSessions() {
   sessionsData = await res.json();
 
   const listEl = document.getElementById('session-list');
-  listEl.innerHTML = sessionsData.map(s => {
+  listEl.innerHTML = sessionsData.map((s, i) => {
     const displayName = formatName(s.id, s.is_group === 1);
-    // 使用字符串拼接替代模板字符串
-    return '<div class="session-item ' + (currentSession?.id === s.id ? 'active' : '') + '" onclick="selectSession(\'' + escapeHTML(s.id) + '\')">' +
+    return '<div class="session-item ' + (currentSession?.id === s.id ? 'active' : '') + '" onclick="selectSession(' + i + ')">' +
     '<div class="session-name">' + (s.is_group ? '👥 ' : '👤 ') + displayName + '</div>' +
     '<div class="session-id" title="点击复制完整 ID" onclick="copyId(\'' + escapeHTML(s.id) + '\', event)">' +
     '<span class="full-id">' + escapeHTML(s.id) + '</span>' +
     '</div>' +
     '<div class="session-preview">' + escapeHTML(s.last_message || '暂无消息') + '</div>' +
-    '<span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession(\'' + escapeHTML(s.id) + '\')">🗑️</span>' +
+    '<span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession(' + i + ')">🗑️</span>' +
     '</div>';
   }).join('');
 }
 
-async function selectSession(id) {
+async function selectSession(index) {
+  const id = sessionsData[index].id;
   if (currentSession?.id === id) {
     if (window.innerWidth <= 768) toggleSidebar();
     return;
   }
-  currentSession = sessionsData.find(s => s.id === id);
+  currentSession = sessionsData[index];
   const shortTitle = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' (' + id + ')';
   document.getElementById('chat-title').innerText = shortTitle;
   document.getElementById('mobile-title').innerText = shortTitle;
@@ -477,7 +478,8 @@ async function selectSession(id) {
   if (window.innerWidth <= 768) toggleSidebar();
 }
 
-async function deleteSession(id) {
+async function deleteSession(index) {
+  const id = sessionsData[index].id;
   const resVal = await showModal({
     title: '删除会话',
     html: '确定要删除该会话及记录吗？',
@@ -501,8 +503,11 @@ async function loadMessages(sessionId, isPush) {
   if (msgEl.dataset.count == msgs.length) return;
   msgEl.dataset.count = msgs.length;
 
+  // 👇 把消息存入全局变量
+  currentMsgs = msgs;
+
   const now = Date.now();
-  msgEl.innerHTML = msgs.map(m => {
+  msgEl.innerHTML = msgs.map((m, i) => {
     if (m.type === 'system') {
       return '<div class="msg system"><div class="msg-system-text">' + escapeHTML(m.content) + '</div></div>';
     }
@@ -544,6 +549,7 @@ async function loadMessages(sessionId, isPush) {
       } catch (e) {}
     }
 
+    // 👇 这里只传 index (i)，不传复杂的字符串参数
     return '<div class="msg ' + (isOut ? 'outgoing' : 'incoming') + '">' +
     authorHtml +
     '<div class="msg-bubble">' +
@@ -553,12 +559,12 @@ async function loadMessages(sessionId, isPush) {
     '</div>' +
     '<div class="msg-meta">' +
     '<span>' + new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + '</span>' +
-    (showRecallBtn ? '<span class="action-btn" title="撤回" onclick="recallMessage(\'' + escapeHTML(m.msg_id) + '\')">🗑️</span>' : '') +
-    (showReplyBtn ? '<span class="action-btn" title="被动回复" onclick="startReply(\'' + escapeHTML(m.msg_id) + '\', ' + m.timestamp + ')">↩️</span>' : '') +
-    '<span class="action-btn" title="引用并回复" onclick="startQuote(\'' + escapeHTML(m.msg_id) + '\', \'' + escapeHTML(m.content) + '\', ' + m.timestamp + ')">💬</span>' +
-    (showGroupOps ? '<span class="action-btn" title="提及" onclick="insertAtTag(\'' + escapeHTML(rawAuthorName) + '\')">@</span>' : '') +
-    (showGroupOps ? '<span class="action-btn" title="禁言管理" onclick="openMutePanel(\'' + escapeHTML(rawAuthorName) + '\')">🔇</span>' : '') +
-    (showGroupOps ? '<span class="action-btn" title="踢出" onclick="kickMember(\'' + escapeHTML(rawAuthorName) + '\')">👢</span>' : '') +
+    (showRecallBtn ? '<span class="action-btn" title="撤回" onclick="recallMessage(' + i + ')">🗑️</span>' : '') +
+    (showReplyBtn ? '<span class="action-btn" title="被动回复" onclick="startReply(' + i + ')">↩️</span>' : '') +
+    '<span class="action-btn" title="引用并回复" onclick="startQuote(' + i + ')">💬</span>' +
+    (showGroupOps ? '<span class="action-btn" title="提及" onclick="insertAtTag(' + i + ')">@</span>' : '') +
+    (showGroupOps ? '<span class="action-btn" title="禁言管理" onclick="openMutePanel(' + i + ')">🔇</span>' : '') +
+    (showGroupOps ? '<span class="action-btn" title="踢出" onclick="kickMember(' + i + ')">👢</span>' : '') +
     '</div>' +
     '</div>';
   }).join('');
@@ -570,7 +576,8 @@ async function loadMessages(sessionId, isPush) {
 }
 
 // ================= 禁言管理专属面板 =================
-async function openMutePanel(memberOpenid) {
+async function openMutePanel(index) {
+  const memberOpenid = currentMsgs[index].author_name;
   const loadingHtml = '<div class="mute-status-box">' +
   '<div class="mute-status-text" style="color:#1890ff">正在查询禁言状态...</div>' +
   '</div>' +
@@ -643,7 +650,8 @@ window.selectMuteTime = function(el, mins) {
 };
 
 // ================= 通用操作 =================
-function insertAtTag(authorId) {
+function insertAtTag(index) {
+  const authorId = currentMsgs[index].author_name;
   if (!authorId) return;
   const inputEl = document.getElementById('msg-input');
   const tag = '<qqbot-at-user id="' + authorId + '" /> ';
@@ -701,20 +709,22 @@ function updateModeUI() {
   }
 }
 
-function startReply(msgId, timestamp) {
-  timestamp = Number(timestamp) || Date.now();
+function startReply(index) {
+  const m = currentMsgs[index];
+  const timestamp = Number(m.timestamp) || Date.now();
   if (Date.now() - timestamp > 5 * 60 * 1000) {
     return showToast('该消息已超过 5 分钟，无法被动回复', 'error');
   }
-  replyToMsg = msgId;
+  replyToMsg = m.msg_id;
   replyBaseTime = timestamp;
   updateModeUI();
   document.getElementById('msg-input').focus();
 }
 
-function startQuote(msgId, content, timestamp) {
-  quoteToMsg = { msgId, content };
-  replyBaseTime = Number(timestamp) || Date.now();
+function startQuote(index) {
+  const m = currentMsgs[index];
+  quoteToMsg = { msgId: m.msg_id, content: m.content };
+  replyBaseTime = Number(m.timestamp) || Date.now();
   updateModeUI();
   document.getElementById('msg-input').focus();
 }
@@ -734,7 +744,8 @@ function cancelReply() {
   updateModeUI();
 }
 
-async function recallMessage(msgId) {
+async function recallMessage(index) {
+  const msgId = currentMsgs[index].msg_id;
   const confirm = await showModal({ title: '撤回', html: '确定要撤回这条消息吗？', buttons: [{ text: '取消', value: false, type: 'cancel' }, { text: '撤回', value: true, type: 'danger' }] });
   if (!confirm) return;
   const res = await fetch('/api/recall', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: currentSession.id, isGroup: currentSession.is_group === 1, messageId: msgId }) });
@@ -743,7 +754,8 @@ async function recallMessage(msgId) {
   else showToast(data.error, 'error');
 }
 
-async function kickMember(memberOpenid) {
+async function kickMember(index) {
+  const memberOpenid = currentMsgs[index].author_name;
   const html = '<div style="margin-bottom:15px;font-size:14px;">确定要将 <b>' + formatName(memberOpenid) + '</b> 踢出群吗？</div>' +
   '<label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;color:#ff4d4f;">' +
   '<input type="checkbox" id="kick-blacklist" style="width:16px;height:16px;accent-color:#ff4d4f;">' +
