@@ -247,7 +247,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 
 <div class="messages" id="messages"></div>
 
-<!-- 👇 引用/回复提示条放在这里，紧贴输入框 -->
 <div class="reply-tip" id="reply-tip">
 <span id="tip-text">正在回复...</span>
 <div class="btn-group">
@@ -282,6 +281,10 @@ let replyToMsg = null;
 let quoteToMsg = null;
 let sessionsData = [];
 let ws = null;
+
+// 倒计时相关
+let replyTimeoutTimer = null;
+let replyExpireTime = 0;
 
 const originalFetch = window.fetch;
 window.fetch = async function(...args) {
@@ -654,21 +657,45 @@ function insertAtTag(authorId) {
   inputEl.focus();
 }
 
+// 👇 核心倒计时 UI 更新逻辑
 function updateModeUI() {
   const label = document.getElementById('mode-label');
   const btn = document.getElementById('toggle-mode-btn');
+  const tipText = document.getElementById('tip-text');
+
+  // 清除之前的定时器
+  if (replyTimeoutTimer) clearInterval(replyTimeoutTimer);
 
   if (replyToMsg) {
     label.innerText = '被动';
     label.style.color = '#52c41a';
     btn.innerText = '转为主动';
+
+    // 启动倒计时
+    replyExpireTime = Date.now() + 5 * 60 * 1000;
+    replyTimeoutTimer = setInterval(() => {
+      const remaining = replyExpireTime - Date.now();
+      if (remaining <= 0) {
+        clearInterval(replyTimeoutTimer);
+        cancelReply();
+        showToast('被动回复已超时（5分钟），自动转为主动模式', 'error');
+      } else {
+        const mins = Math.floor(remaining / 60000);
+        const secs = Math.floor((remaining % 60000) / 1000);
+        const timeStr = \`\${mins}分\${secs.toString().padStart(2, '0')}秒\`;
+        // 保留原来的引用文字，追加倒计时
+        const originalText = quoteToMsg ? \`正在引用: \${(quoteToMsg.content || '[非文本]').substring(0, 10)}...\` : '正在被动回复...';
+        tipText.innerText = \`\${originalText} (剩余 \${timeStr})\`;
+      }
+    }, 1000);
+
   } else {
     label.innerText = '主动';
     label.style.color = '#fa8c16';
     btn.innerText = '需要被动？去点消息回复';
+    tipText.innerText = quoteToMsg ? \`正在主动引用: \${(quoteToMsg.content || '[非文本]').substring(0, 15)}...\` : '正在主动发送...';
   }
 
-  // 如果既没有引用也没有回复，隐藏提示条
   if (!replyToMsg && !quoteToMsg) {
     document.getElementById('reply-tip').style.display = 'none';
   } else {
@@ -678,24 +705,18 @@ function updateModeUI() {
 
 function startReply(msgId) {
   replyToMsg = msgId;
-  // 如果只点回复，不自动带引用
-  document.getElementById('tip-text').innerText = '正在被动回复消息...';
   updateModeUI();
   document.getElementById('msg-input').focus();
 }
 
-// 👇 只设置引用，不自动设置被动
 function startQuote(msgId, content) {
   quoteToMsg = { msgId, content };
-  document.getElementById('tip-text').innerText = '正在引用: ' + (content || '[非文本]').substring(0, 15) + '...';
   updateModeUI();
   document.getElementById('msg-input').focus();
 }
 
-// 👇 允许用户手动在主动/被动间切换
 function toggleMode() {
   if (replyToMsg) {
-    // 主动降级为主动
     replyToMsg = null;
   } else {
     showToast('请先在聊天记录点击“↩️”选择要被动回复的对象', 'info');
@@ -751,6 +772,12 @@ async function sendMessage() {
   if (!currentSession) return showToast('请先选择会话', 'error');
   const content = document.getElementById('msg-input').value.trim();
   if (!content) return;
+
+  // 二次检查：如果被动回复过期（以防计时器被挂起），强制拦截
+  if (replyToMsg && Date.now() > replyExpireTime) {
+    cancelReply();
+    return showToast('被动回复已超时，请重新点击回复按钮', 'error');
+  }
 
   const body = { sessionId: currentSession.id, isGroup: currentSession.is_group === 1, content: content };
 
