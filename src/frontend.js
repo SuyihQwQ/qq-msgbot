@@ -10,17 +10,23 @@ export const FRONTEND_HTML = `
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; height: 100vh; display: flex; color: #333; overflow: hidden; }
 
+/* 全局错误提示层 */
+#js-error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 99999; padding: 20px; color: #ff4d4f; flex-direction: column; }
+#js-error-layer h2 { margin-bottom: 10px; }
+#js-error-layer pre { white-space: pre-wrap; font-size: 13px; background: #f5f5f5; padding: 15px; border-radius: 8px; overflow: auto; }
+
 /* 通用 Toast */
 .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 14px; z-index: 10000; opacity: 0; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55); pointer-events: none; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(4px);}
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.success { background: rgba(82, 196, 26, 0.95); }
 .toast.error { background: rgba(255, 77, 79, 0.95); }
 
-/* Loading 与 错误 */
+/* Loading */
 #loading-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; font-size: 15px; color: #666; flex-direction: column; gap: 12px; background: #f0f2f5;}
 .spinner { width: 36px; height: 36px; border: 3px solid #d9d9d9; border-top-color: #1890ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 登录 */
 #login-page { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; background: #f0f2f5; padding: 20px;}
 .login-box { background: white; padding: 40px 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); width: 100%; max-width: 320px; }
 .login-box h2 { text-align: center; margin-bottom: 25px; font-weight: 600; color: #1a1a1a; }
@@ -31,70 +37,44 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 /* 主界面 */
 #app { display: none; width: 100%; height: 100%; background: white; position: relative; }
 
-/* 移动端 Header */
 .mobile-header { display: none; height: 60px; background: #fff; border-bottom: 1px solid #e8e8e8; align-items: center; padding: 0 15px; justify-content: space-between; flex-shrink: 0;}
 .menu-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px; color: #333;}
 
-/* 侧边栏 */
 .sidebar { width: 320px; background: #f7f9fa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; transition: transform 0.3s ease; flex-shrink: 0; z-index: 100;}
 .session-list { flex: 1; overflow-y: auto; padding: 10px; }
 .session-item { padding: 12px 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 5px; background: #fff; border: 1px solid transparent;}
 .session-item:hover, .session-item.active { background: #e6f7ff; border-color: #91d5ff;}
-
 .session-name { font-weight: 600; margin-bottom: 4px; font-size: 14px; color: #333; padding-right: 30px; display: flex; align-items: center; gap: 6px;}
 .session-id { font-size: 10px; color: #888; margin-bottom: 6px; word-break: break-all; line-height: 1.3; display: flex; align-items: flex-start; gap: 4px;}
 .session-id span.full-id { color: #1890ff; text-decoration: underline; font-weight: 500; cursor: pointer;}
-
 .session-preview { font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .delete-session-btn { position: absolute; right: 10px; top: 12px; font-size: 14px; cursor: pointer; opacity: 0; transition: opacity 0.2s; color: #ff4d4f; padding: 4px;}
 .session-item:hover .delete-session-btn { opacity: 1; }
 .session-item.active { background: #e6f7ff; border-left: 4px solid #1890ff; padding-left: 11px;}
 
-/* 侧边栏遮罩（移动端） */
 .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; opacity: 0; transition: opacity 0.3s;}
 
-/* 聊天区 */
 .chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative; min-width: 0;}
 .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; scroll-behavior: smooth;}
 
-/* 统一 Header 高度 */
-.sidebar-header, .chat-header {
-  height: 60px;
-  padding: 0 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-  font-size: 16px;
-  background: #fff;
-  color: #1a1a1a;
-  border-bottom: 1px solid #e8e8e8;
-  flex-shrink: 0;
-  z-index: 10;
-}
+.sidebar-header, .chat-header { height: 60px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 16px; background: #fff; color: #1a1a1a; border-bottom: 1px solid #e8e8e8; flex-shrink: 0; z-index: 10;}
 .sidebar-header { justify-content: flex-start; gap: 8px; }
 
-/* 气泡 */
 .msg { margin-bottom: 20px; display: flex; flex-direction: column; max-width: 85%; }
 .msg.incoming { align-self: flex-start; }
 .msg.outgoing { align-self: flex-end; align-items: flex-end; }
-
-/* 作者名字与头像 */
 .msg-author { font-size: 12px; color: #888; margin-bottom: 6px; padding: 0 4px; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: opacity 0.2s;}
 .msg-author:hover { opacity: 0.7; }
 .avatar-circle { width: 16px; height: 16px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;}
-
 .msg-bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-wrap: break-word; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);}
 .msg.incoming .msg-bubble { background: #fff; color: #333; border-top-left-radius: 2px;}
 .msg.outgoing .msg-bubble { background: #1890ff; color: #fff; border-top-right-radius: 2px;}
 
-/* 系统消息与引用 */
 .msg.system { align-self: center; align-items: center; max-width: 90%; margin: 15px 0;}
 .msg-system-text { font-size: 12px; color: #888; background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px; text-align: center; }
 .quote-box { background: rgba(0,0,0,0.04); border-left: 3px solid #ccc; padding: 6px 10px; margin-bottom: 10px; font-size: 12px; color: #666; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
 .msg.outgoing .quote-box { background: rgba(255,255,255,0.15); border-left-color: #fff; color: rgba(255,255,255,0.85); }
 
-/* 操作区 */
 .msg-meta { font-size: 12px; color: #b3b3b3; margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; opacity: 0; transition: opacity 0.2s;}
 .msg:hover .msg-meta { opacity: 1; }
 @media (hover: none) { .msg-meta { opacity: 1; } }
@@ -104,45 +84,30 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .action-btn:hover { background: #f0f0f0; }
 .msg.outgoing .action-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; }
 
-/* 附件 */
 .attachment-img-box { margin-top: 8px; max-width: 100%; }
 .chat-img { max-width: 200px; max-height: 200px; border-radius: 8px; cursor: pointer; object-fit: cover; display: block;}
 .attachment-error { display: inline-block; font-size: 12px; color: #999; background: #f5f5f5; padding: 4px 8px; border-radius: 4px; margin-top: 5px;}
 .attachment-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 8px 14px; background: #fff; border-radius: 6px; color: #1890ff; text-decoration: none; font-size: 13px; border: 1px solid #e8e8e8;}
 .msg.outgoing .attachment-link { background: rgba(255,255,255,0.15); border-color: transparent; color: #fff;}
 
-/* 👇 引用/回复提示条 (紧贴输入框上方) */
-.reply-tip {
-  font-size: 13px;
-  padding: 8px 15px;
-  display: none;
-  background: #fffbe6;
-  color: #fa8c16;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid #ffe58f;
-  flex-shrink: 0;
-}
+.reply-tip { font-size: 13px; padding: 8px 15px; display: none; background: #fffbe6; color: #fa8c16; justify-content: space-between; align-items: center; border-top: 1px solid #ffe58f; flex-shrink: 0;}
 .reply-tip .btn-group { display: flex; gap: 10px; }
 .reply-tip span { cursor: pointer; font-weight: 500; }
 .toggle-mode { color: #1890ff; }
 .toggle-mode:hover { text-decoration: underline; }
 .cancel { color: #ff4d4f; }
 
-/* 输入区 */
 .input-area { padding: 10px 15px; background: #fff; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0;}
 .input-area textarea { flex: 1; height: 50px; padding: 12px; border: 1px solid #d9d9d9; border-radius: 8px; resize: none; font-size: 14px; font-family: inherit; outline: none; background: #fafafa;}
 .input-area textarea:focus { border-color: #1890ff; background: #fff;}
 .input-area button { padding: 0 20px; height: 40px; background: #1890ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; margin-bottom: 5px;}
 
-/* 弹窗组件 */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10001; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(2px);}
 .modal-overlay.show { opacity: 1; pointer-events: auto; }
 .modal-box { background: #fff; border-radius: 12px; width: 90%; max-width: 400px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transform: scale(0.9); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 .modal-overlay.show .modal-box { transform: scale(1); }
 .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 15px; color: #333; }
 .modal-content { font-size: 14px; color: #555; margin-bottom: 20px; line-height: 1.5; word-break: break-all;}
-
 .modal-input { width: 100%; padding: 10px; border: 1px solid #d9d9d9; border-radius: 8px; margin-bottom: 20px; outline: none; font-size: 15px; }
 .modal-btns { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;}
 .modal-btn { padding: 8px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; border: none; transition: 0.2s; }
@@ -151,7 +116,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .modal-btn.danger { background: #ff4d4f; color: #fff; }
 .modal-btn.success { background: #52c41a; color: #fff; }
 
-/* 禁言管理专属面板 */
 .mute-status-box { background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px; border: 1px solid #e8e8e8; }
 .mute-status-text { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
 .mute-status-desc { font-size: 12px; color: #888; }
@@ -159,7 +123,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .mute-chip { padding: 6px 12px; background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; border-radius: 16px; font-size: 13px; cursor: pointer;}
 .mute-chip.active { background: #1890ff; color: #fff; }
 
-/* 响应式 (手机端) */
 @media (max-width: 768px) {
   #app { flex-direction: column; }
   .mobile-header { display: flex; }
@@ -174,47 +137,60 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
   .modal-box { padding: 20px; }
 }
 
-/* 自动适配暗黑模式 */
 @media (prefers-color-scheme: dark) {
   body { background: #121212; color: #e0e0e0; }
+  #js-error-layer { background: #121212; }
+  #js-error-layer pre { background: #2a2a2a; color: #ff7875;}
   #loading-page, #login-page { background: #121212; }
   .login-box { background: #1e1e1e; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
   .login-box h2 { color: #fff; }
   .login-box input { background: #2a2a2a; border-color: #333; color: #fff; }
-
   #app { background: #121212; }
   .sidebar { background: #1e1e1e; border-color: #333; }
   .sidebar-header, .chat-header, .mobile-header, .input-area { background: #1e1e1e; border-color: #333; color: #e0e0e0; }
   .menu-btn { color: #e0e0e0; }
-
   .session-item { background: #2a2a2a; border-color: #333; }
   .session-item:hover, .session-item.active { background: #1a3b5c; border-color: #1890ff; }
   .session-name { color: #e0e0e0; }
   .session-id { color: #888; }
   .session-id span.full-id { color: #40a9ff; }
-
   .chat-area { background: #121212; }
   .msg.incoming .msg-bubble { background: #2a2a2a; color: #e0e0e0; border-color: #333; }
   .msg-meta { color: #888; }
   .action-btn { background: #333; border-color: #444; color: #e0e0e0; }
   .action-btn:hover { background: #444; }
-
   .input-area textarea { background: #2a2a2a; border-color: #333; color: #e0e0e0; }
   .input-area textarea:focus { background: #333; border-color: #1890ff; }
-
   .modal-box { background: #1e1e1e; border: 1px solid #333; }
   .modal-title { color: #fff; }
   .modal-content { color: #aaa; }
   .modal-input { background: #2a2a2a; border-color: #333; color: #fff; }
   .modal-btn.cancel { background: #333; color: #e0e0e0; }
-
   .mute-status-box { background: #2a2a2a; border-color: #333; }
   .quote-box { background: rgba(255,255,255,0.1); color: #aaa; }
   .reply-tip { background: #3b3214; border-color: #5a4a1a; color: #e6a23c; }
 }
 </style>
+<script>
+// 👇 全局捕获 JS 错误，直接显示在页面上，防止白屏或卡死
+window.onerror = function(msg, url, line, col, error) {
+  const errLayer = document.getElementById('js-error-layer');
+  if (errLayer) {
+    errLayer.style.display = 'flex';
+    const pre = errLayer.querySelector('pre');
+    pre.innerText = msg + '\\n\\n位置: ' + line + ':' + col + '\\n\\n' + (error ? error.stack : '');
+  }
+};
+</script>
 </head>
 <body>
+<!-- 错误提示层 -->
+<div id="js-error-layer">
+<h2>⚠️ 页面脚本运行出错</h2>
+<p>请将以下错误信息发给开发者修复：</p>
+<pre></pre>
+</div>
+
 <div id="loading-page"><div class="spinner"></div><div>正在连接...</div></div>
 
 <div id="login-page">
@@ -280,7 +256,7 @@ let currentSession = null;
 let replyToMsg = null;
 let quoteToMsg = null;
 let sessionsData = [];
-let currentMsgs = []; // 👈 新增：缓存当前渲染的消息
+let currentMsgs = []; // 缓存当前渲染的消息
 let ws = null;
 
 let replyBaseTime = 0;
@@ -373,6 +349,7 @@ function isTokenValid() {
 }
 
 function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
   return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
 }
 
@@ -396,6 +373,7 @@ async function checkSystemStatus() {
     }
   } catch (e) {
     document.getElementById('loading-page').innerHTML = '<span style="color:red">连接失败，请刷新</span>';
+    throw e;
   }
 }
 
@@ -444,6 +422,10 @@ async function loadSessions() {
   const res = await fetch('/api/sessions', { headers: { 'Authorization': 'Bearer ' + token } });
   if (res.status === 401) return;
   sessionsData = await res.json();
+
+  if (!Array.isArray(sessionsData)) {
+    return showToast('获取会话失败', 'error');
+  }
 
   const listEl = document.getElementById('session-list');
   listEl.innerHTML = sessionsData.map((s, i) => {
@@ -499,11 +481,14 @@ async function loadMessages(sessionId, isPush) {
 
   if (sessionId !== currentSession.id) return;
 
+  if (!Array.isArray(msgs)) {
+    return showToast('获取消息失败: ' + (msgs.error || '未知错误'), 'error');
+  }
+
   const msgEl = document.getElementById('messages');
   if (msgEl.dataset.count == msgs.length) return;
   msgEl.dataset.count = msgs.length;
 
-  // 👇 把消息存入全局变量
   currentMsgs = msgs;
 
   const now = Date.now();
@@ -549,7 +534,6 @@ async function loadMessages(sessionId, isPush) {
       } catch (e) {}
     }
 
-    // 👇 这里只传 index (i)，不传复杂的字符串参数
     return '<div class="msg ' + (isOut ? 'outgoing' : 'incoming') + '">' +
     authorHtml +
     '<div class="msg-bubble">' +
