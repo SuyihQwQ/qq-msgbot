@@ -5,6 +5,7 @@ export const FRONTEND_HTML = `
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>QQ MsgBot 控制台</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231890ff'/><path d='M25 35 Q25 20 50 20 Q75 20 75 35 L75 60 Q75 75 50 75 L38 75 L20 88 L25 72 Q25 60 25 60 Z' fill='white'/><circle cx='40' cy='42' r='6' fill='%231890ff'/><circle cx='60' cy='42' r='6' fill='%231890ff'/><rect x='40' y='55' width='20' height='4' rx='2' fill='%231890ff'/></svg>">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; height: 100vh; display: flex; color: #333; overflow: hidden; }
@@ -16,33 +17,31 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .toast.error { background: rgba(255, 77, 79, 0.95); }
 
 /* Loading 与 错误 */
-#loading-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; font-size: 15px; color: #666; flex-direction: column; gap: 12px;}
+#loading-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; font-size: 15px; color: #666; flex-direction: column; gap: 12px; background: #f0f2f5;}
 .spinner { width: 36px; height: 36px; border: 3px solid #d9d9d9; border-top-color: #1890ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 #login-page { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; background: #f0f2f5; padding: 20px;}
 .login-box { background: white; padding: 40px 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); width: 100%; max-width: 320px; }
 .login-box h2 { text-align: center; margin-bottom: 25px; font-weight: 600; color: #1a1a1a; }
-.login-box input { width: 100%; padding: 12px 15px; margin-bottom: 20px; border: 1px solid #d9d9d9; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s;}
-.login-box input:focus { border-color: #1890ff; }
+.login-box input { width: 100%; padding: 12px 15px; margin-bottom: 20px; border: 1px solid #d9d9d9; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; background: #fafafa;}
+.login-box input:focus { border-color: #1890ff; background: #fff;}
 .login-box button { width: 100%; padding: 12px; background: #1890ff; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; transition: background 0.2s;}
 
 /* 主界面 */
 #app { display: none; width: 100%; height: 100%; background: white; position: relative; }
 
 /* 移动端 Header */
-.mobile-header { display: none; height: 50px; background: #fff; border-bottom: 1px solid #e8e8e8; align-items: center; padding: 0 15px; justify-content: space-between; flex-shrink: 0;}
+.mobile-header { display: none; height: 60px; background: #fff; border-bottom: 1px solid #e8e8e8; align-items: center; padding: 0 15px; justify-content: space-between; flex-shrink: 0;}
 .menu-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px; color: #333;}
 
 /* 侧边栏 */
 .sidebar { width: 300px; background: #f7f9fa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; transition: transform 0.3s ease; flex-shrink: 0; z-index: 100;}
-.sidebar-header { padding: 20px 15px; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 18px; background: #fff; color: #1a1a1a; display: flex; align-items: center; gap: 8px;}
 .session-list { flex: 1; overflow-y: auto; padding: 10px; }
 .session-item { padding: 12px 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 5px; background: #fff; border: 1px solid transparent;}
 .session-item:hover, .session-item.active { background: #e6f7ff; border-color: #91d5ff;}
 
 .session-name { font-weight: 600; margin-bottom: 4px; font-size: 14px; color: #333; padding-right: 30px;}
-/* 👇 新增：专门用于显示长 ID 的样式 */
 .session-id { font-size: 11px; color: #888; margin-bottom: 6px; word-break: break-all; line-height: 1.2;}
 
 .session-preview { font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -55,8 +54,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 
 /* 聊天区 */
 .chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative; min-width: 0;}
-.chat-header { padding: 15px 20px; border-bottom: 1px solid #e8e8e8; font-weight: 600; display: flex; justify-content: space-between; align-items: center; background: #fff; color: #1a1a1a; z-index: 10; flex-shrink: 0;}
 .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; scroll-behavior: smooth;}
+
+/* 👇 修复对齐：统一左右 Header 高度与样式 👇 */
+.sidebar-header, .chat-header {
+  height: 60px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 16px;
+  background: #fff;
+  color: #1a1a1a;
+  border-bottom: 1px solid #e8e8e8;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.sidebar-header { justify-content: flex-start; gap: 8px; }
 
 /* 气泡 */
 .msg { margin-bottom: 20px; display: flex; flex-direction: column; max-width: 85%; }
@@ -76,7 +91,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 /* 操作区 */
 .msg-meta { font-size: 12px; color: #b3b3b3; margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; opacity: 0; transition: opacity 0.2s;}
 .msg:hover .msg-meta { opacity: 1; }
-/* 移动端直接显示操作栏 */
 @media (hover: none) { .msg-meta { opacity: 1; } }
 .msg.outgoing .msg-meta { justify-content: flex-end; }
 
@@ -128,15 +142,52 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 @media (max-width: 768px) {
   #app { flex-direction: column; }
   .mobile-header { display: flex; }
+  .chat-header { display: none; } /* 手机端隐藏桌面的聊天头，用顶栏代替 */
   .sidebar { position: fixed; top: 0; left: 0; height: 100%; transform: translateX(-100%); width: 280px; box-shadow: 2px 0 10px rgba(0,0,0,0.1);}
   .sidebar.open { transform: translateX(0); }
   .sidebar-overlay.open { display: block; opacity: 1; }
-  .chat-header { padding: 12px 15px; font-size: 14px;}
   .messages { padding: 15px; }
   .msg { max-width: 90%; }
   .input-area { padding: 10px; gap: 8px;}
   .input-area textarea { height: 45px; padding: 10px; font-size: 14px;}
   .modal-box { padding: 20px; }
+}
+
+/* 👇 自动适配暗黑模式 👇 */
+@media (prefers-color-scheme: dark) {
+  body { background: #121212; color: #e0e0e0; }
+  #loading-page, #login-page { background: #121212; }
+  .login-box { background: #1e1e1e; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  .login-box h2 { color: #fff; }
+  .login-box input { background: #2a2a2a; border-color: #333; color: #fff; }
+
+  #app { background: #121212; }
+  .sidebar { background: #1e1e1e; border-color: #333; }
+  .sidebar-header, .chat-header, .mobile-header, .input-area { background: #1e1e1e; border-color: #333; color: #e0e0e0; }
+  .menu-btn { color: #e0e0e0; }
+
+  .session-item { background: #2a2a2a; border-color: #333; }
+  .session-item:hover, .session-item.active { background: #1a3b5c; border-color: #1890ff; }
+  .session-name { color: #e0e0e0; }
+  .session-id { color: #888; }
+
+  .chat-area { background: #121212; }
+  .msg.incoming .msg-bubble { background: #2a2a2a; color: #e0e0e0; border-color: #333; }
+  .msg-meta { color: #888; }
+  .action-btn { background: #333; border-color: #444; color: #e0e0e0; }
+  .action-btn:hover { background: #444; }
+
+  .input-area textarea { background: #2a2a2a; border-color: #333; color: #e0e0e0; }
+  .input-area textarea:focus { background: #333; border-color: #1890ff; }
+
+  .modal-box { background: #1e1e1e; border: 1px solid #333; }
+  .modal-title { color: #fff; }
+  .modal-content { color: #aaa; }
+  .modal-input { background: #2a2a2a; border-color: #333; color: #fff; }
+  .modal-btn.cancel { background: #333; color: #e0e0e0; }
+
+  .mute-status-box { background: #2a2a2a; border-color: #333; }
+  .quote-box { background: rgba(255,255,255,0.1); color: #aaa; }
 }
 </style>
 </head>
@@ -170,10 +221,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 
 <!-- 聊天区 -->
 <div class="chat-area">
+<!-- 桌面端头部 -->
 <div class="chat-header">
-<span id="chat-title" style="display: none;">请选择</span>
-<span style="font-size: 12px; color: #888;">模式: <span id="mode-label">主动</span></span>
+<!-- 👇 修复：去掉 display: none，默认显示 -->
+<span id="chat-title">请选择左侧会话</span>
+<span style="font-size: 12px; color: #888; font-weight: normal;">模式: <span id="mode-label">主动</span></span>
 </div>
+
 <div class="reply-tip" id="reply-tip">
 <span id="tip-text">正在回复...</span> <span class="cancel" onclick="cancelReply()">✖ 取消</span>
 </div>
@@ -221,7 +275,7 @@ function showToast(msg, type = 'info') {
   toastTimeout = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-function showModal({ title, html, inputs, buttons }) {
+function showModal({ title, html, buttons }) {
   return new Promise((resolve) => {
     document.getElementById('modal-title').innerText = title;
     document.getElementById('modal-content').innerHTML = html;
@@ -327,7 +381,6 @@ async function loadSessions() {
   sessionsData = await res.json();
 
   const listEl = document.getElementById('session-list');
-  // 👇 修复：将会话 ID 直接展示在名称下方
   listEl.innerHTML = sessionsData.map(s => \`
   <div class="session-item \${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('\${escapeHTML(s.id)}')">
   <div class="session-name">\${s.is_group ? '👥 群聊' : '👤 私聊'}</div>
@@ -364,7 +417,7 @@ async function deleteSession(id) {
   });
   if (!resVal) return;
   await fetch('/api/delete_session', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id }) });
-  if (currentSession?.id === id) { currentSession = null; document.getElementById('messages').innerHTML = ''; document.getElementById('chat-title').innerText = '请选择'; }
+  if (currentSession?.id === id) { currentSession = null; document.getElementById('messages').innerHTML = ''; document.getElementById('chat-title').innerText = '请选择左侧会话'; document.getElementById('mobile-title').innerText = '请选择会话'; }
   loadSessions();
 }
 
