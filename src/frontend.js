@@ -36,13 +36,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .menu-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px; color: #333;}
 
 /* 侧边栏 */
-.sidebar { width: 300px; background: #f7f9fa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; transition: transform 0.3s ease; flex-shrink: 0; z-index: 100;}
+.sidebar { width: 320px; background: #f7f9fa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; transition: transform 0.3s ease; flex-shrink: 0; z-index: 100;}
 .session-list { flex: 1; overflow-y: auto; padding: 10px; }
 .session-item { padding: 12px 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 5px; background: #fff; border: 1px solid transparent;}
 .session-item:hover, .session-item.active { background: #e6f7ff; border-color: #91d5ff;}
 
 .session-name { font-weight: 600; margin-bottom: 4px; font-size: 14px; color: #333; padding-right: 30px; display: flex; align-items: center; gap: 6px;}
-.session-id { font-size: 11px; color: #888; margin-bottom: 6px; word-break: break-all; line-height: 1.2; display: flex; align-items: center; gap: 4px;}
+.session-id { font-size: 10px; color: #888; margin-bottom: 6px; word-break: break-all; line-height: 1.3; display: flex; align-items: flex-start; gap: 4px;}
+.session-id span.full-id { color: #1890ff; text-decoration: underline; font-weight: 500; cursor: pointer;}
 
 .session-preview { font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .delete-session-btn { position: absolute; right: 10px; top: 12px; font-size: 14px; cursor: pointer; opacity: 0; transition: opacity 0.2s; color: #ff4d4f; padding: 4px;}
@@ -110,14 +111,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .attachment-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 8px 14px; background: #fff; border-radius: 6px; color: #1890ff; text-decoration: none; font-size: 13px; border: 1px solid #e8e8e8;}
 .msg.outgoing .attachment-link { background: rgba(255,255,255,0.15); border-color: transparent; color: #fff;}
 
+/* 👇 引用/回复提示条 (紧贴输入框上方) */
+.reply-tip {
+  font-size: 13px;
+  padding: 8px 15px;
+  display: none;
+  background: #fffbe6;
+  color: #fa8c16;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #ffe58f;
+  flex-shrink: 0;
+}
+.reply-tip .btn-group { display: flex; gap: 10px; }
+.reply-tip span { cursor: pointer; font-weight: 500; }
+.toggle-mode { color: #1890ff; }
+.toggle-mode:hover { text-decoration: underline; }
+.cancel { color: #ff4d4f; }
+
 /* 输入区 */
-.input-area { padding: 10px 15px; background: #fff; border-top: 1px solid #e8e8e8; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0;}
+.input-area { padding: 10px 15px; background: #fff; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0;}
 .input-area textarea { flex: 1; height: 50px; padding: 12px; border: 1px solid #d9d9d9; border-radius: 8px; resize: none; font-size: 14px; font-family: inherit; outline: none; background: #fafafa;}
 .input-area textarea:focus { border-color: #1890ff; background: #fff;}
 .input-area button { padding: 0 20px; height: 40px; background: #1890ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; margin-bottom: 5px;}
-
-.reply-tip { font-size: 13px; padding: 8px 15px; display: none; background: #fffbe6; border-bottom: 1px solid #ffe58f; color: #fa8c16; justify-content: space-between; align-items: center;}
-.reply-tip span.cancel { cursor: pointer; color: #1890ff; font-weight: 500; margin-left: 10px;}
 
 /* 弹窗组件 */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10001; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(2px);}
@@ -148,7 +164,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
   #app { flex-direction: column; }
   .mobile-header { display: flex; }
   .chat-header { display: none; }
-  .sidebar { position: fixed; top: 0; left: 0; height: 100%; transform: translateX(-100%); width: 280px; box-shadow: 2px 0 10px rgba(0,0,0,0.1);}
+  .sidebar { position: fixed; top: 0; left: 0; height: 100%; transform: translateX(-100%); width: 300px; box-shadow: 2px 0 10px rgba(0,0,0,0.1);}
   .sidebar.open { transform: translateX(0); }
   .sidebar-overlay.open { display: block; opacity: 1; }
   .messages { padding: 15px; }
@@ -175,6 +191,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
   .session-item:hover, .session-item.active { background: #1a3b5c; border-color: #1890ff; }
   .session-name { color: #e0e0e0; }
   .session-id { color: #888; }
+  .session-id span.full-id { color: #40a9ff; }
 
   .chat-area { background: #121212; }
   .msg.incoming .msg-bubble { background: #2a2a2a; color: #e0e0e0; border-color: #333; }
@@ -228,11 +245,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 <span style="font-size: 12px; color: #888; font-weight: normal;">模式: <span id="mode-label">主动</span></span>
 </div>
 
-<div class="reply-tip" id="reply-tip">
-<span id="tip-text">正在回复...</span> <span class="cancel" onclick="cancelReply()">✖ 取消</span>
-</div>
-
 <div class="messages" id="messages"></div>
+
+<!-- 👇 引用/回复提示条放在这里，紧贴输入框 -->
+<div class="reply-tip" id="reply-tip">
+<span id="tip-text">正在回复...</span>
+<div class="btn-group">
+<span class="toggle-mode" id="toggle-mode-btn" onclick="toggleMode()">转为主动</span>
+<span class="cancel" onclick="cancelReply()">✖ 取消</span>
+</div>
+</div>
 
 <div class="input-area">
 <textarea id="msg-input" placeholder="输入消息..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
@@ -273,7 +295,6 @@ window.fetch = async function(...args) {
   return res;
 };
 
-// 👇 统一的名称格式化函数
 function formatName(id, isGroup = false, isBot = false) {
   if (!id || id === '未知用户') return '用户_未知';
   if (isBot) return 'Bot';
@@ -428,7 +449,7 @@ async function loadSessions() {
     <div class="session-item \${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('\${escapeHTML(s.id)}')">
     <div class="session-name">\${s.is_group ? '👥 ' : '👤 '}\${displayName}</div>
     <div class="session-id" title="点击复制完整 ID" onclick="copyId('\${escapeHTML(s.id)}', event)">
-    <span style="color: #1890ff; text-decoration: underline; font-weight: 500;">\${displayName}</span>
+    <span class="full-id">\${escapeHTML(s.id)}</span>
     </div>
     <div class="session-preview">\${escapeHTML(s.last_message || '暂无消息')}</div>
     <span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession('\${escapeHTML(s.id)}')">🗑️</span>
@@ -633,28 +654,59 @@ function insertAtTag(authorId) {
   inputEl.focus();
 }
 
+function updateModeUI() {
+  const label = document.getElementById('mode-label');
+  const btn = document.getElementById('toggle-mode-btn');
+
+  if (replyToMsg) {
+    label.innerText = '被动';
+    label.style.color = '#52c41a';
+    btn.innerText = '转为主动';
+  } else {
+    label.innerText = '主动';
+    label.style.color = '#fa8c16';
+    btn.innerText = '需要被动？去点消息回复';
+  }
+
+  // 如果既没有引用也没有回复，隐藏提示条
+  if (!replyToMsg && !quoteToMsg) {
+    document.getElementById('reply-tip').style.display = 'none';
+  } else {
+    document.getElementById('reply-tip').style.display = 'flex';
+  }
+}
+
 function startReply(msgId) {
   replyToMsg = msgId;
-  quoteToMsg = null;
-  document.getElementById('mode-label').innerText = '被动回复';
-  document.getElementById('reply-tip').style.display = 'flex';
-  document.getElementById('tip-text').innerText = '正在回复消息...';
+  // 如果只点回复，不自动带引用
+  document.getElementById('tip-text').innerText = '正在被动回复消息...';
+  updateModeUI();
   document.getElementById('msg-input').focus();
 }
 
+// 👇 只设置引用，不自动设置被动
 function startQuote(msgId, content) {
-  replyToMsg = msgId;
   quoteToMsg = { msgId, content };
-  document.getElementById('mode-label').innerText = '引用';
-  document.getElementById('reply-tip').style.display = 'flex';
-  document.getElementById('tip-text').innerText = '正在引用: ' + (content || '[非文本]').substring(0, 10) + '...';
+  document.getElementById('tip-text').innerText = '正在引用: ' + (content || '[非文本]').substring(0, 15) + '...';
+  updateModeUI();
   document.getElementById('msg-input').focus();
+}
+
+// 👇 允许用户手动在主动/被动间切换
+function toggleMode() {
+  if (replyToMsg) {
+    // 主动降级为主动
+    replyToMsg = null;
+  } else {
+    showToast('请先在聊天记录点击“↩️”选择要被动回复的对象', 'info');
+    return;
+  }
+  updateModeUI();
 }
 
 function cancelReply() {
   replyToMsg = null; quoteToMsg = null;
-  document.getElementById('mode-label').innerText = '主动';
-  document.getElementById('reply-tip').style.display = 'none';
+  updateModeUI();
 }
 
 async function recallMessage(msgId) {
