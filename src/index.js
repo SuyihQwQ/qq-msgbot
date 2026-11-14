@@ -19,12 +19,24 @@ function hexToBytes(hex) {
   for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
   return bytes;
 }
+
+// 👇 修改：优先提取转写文本
 function parseMessageContent(d) {
   let contentText = d.content || '';
+
+  if (!contentText.trim() && d.attachments && d.attachments.length > 0) {
+    const voiceAtt = d.attachments.find(att => att.content_type?.includes('voice'));
+    if (voiceAtt) {
+      const asrText = d.asr_refer_text || voiceAtt.asr_refer_text;
+      if (asrText) return `[语音] ${asrText}`;
+      return `[语音]`;
+    }
+  }
+
   contentText = contentText.replace(/<faceType=[^>]+>/gi, '[表情]');
   contentText = contentText.replace(/<face[^>]+>/gi, '[表情]');
   contentText = contentText.replace(/<@!?([A-Za-z0-9]+)>/gi, (match, openid) => `@${openid}`);
-  return contentText.trim();
+  return contentText.trim() || '[暂不支持的消息]';
 }
 
 // ================= node:crypto 密钥构造 =================
@@ -75,18 +87,23 @@ export class ChatRoom extends DurableObject {
 }
 
 // ================= KV 文件转存 =================
+// 👇 修改：完全移除语音，只转存图片
 async function processAttachments(env, attachments) {
   if (!attachments || attachments.length === 0) return null;
   const processed = [];
   for (const att of attachments) {
     const type = att.content_type || '';
-    const isMedia = type.startsWith('image/') || type.includes('voice');
-    if (isMedia) {
+
+    // 只有纯图片才存入 KV
+    if (type.startsWith('image/')) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        const fileRes = await fetch(att.url, { signal: controller.signal });
+        const fileRes = await fetch(att.url, {
+          signal: controller.signal,
+          headers: { 'Referer': 'https://q.qq.com/' }
+        });
         clearTimeout(timeoutId);
 
         if (!fileRes.ok) throw new Error('下载失败');
@@ -98,13 +115,12 @@ async function processAttachments(env, attachments) {
         await env.BOT_KV.put(`file:${fileId}`, buffer, { expirationTtl: 604800 });
         processed.push({ ...att, url: `/api/file/${fileId}` });
       } catch (err) {
-        processed.push({ ...att, url: '', error: '转存失败/超时/已过期' });
+        processed.push({ ...att, url: '', error: '图片已过期或无法加载' });
       }
-    } else {
-      processed.push({ ...att, url: '', error: `${type.includes('video') ? '视频' : '普通文件'}不支持转存` });
     }
+    // 语音、视频、普通文件忽略，不再下载
   }
-  return JSON.stringify(processed);
+  return processed.length > 0 ? JSON.stringify(processed) : null;
 }
 
 // ================= QQ API 逻辑 =================
@@ -276,20 +292,20 @@ async function processIncomingMessage(payload, env, ctx) {
     }
 
     const attachmentsData = await processAttachments(env, d.attachments);
+
+    // 如果附件全是语音，content 会被解析为 [语音] XXX，preview 直接用 content
     let previewContent = safeContent;
-    if (!previewContent && d.attachments) {
-      const type = d.attachments[0].content_type || '';
-      if (type.includes('image')) previewContent = '[图片]';
-      else if (type.includes('video')) previewContent = '[视频]';
-      else if (type.includes('voice')) previewContent = '[语音]';
-      else previewContent = '[文件]';
+    if (!previewContent && attachmentsData) {
+      try {
+        const atts = JSON.parse(attachmentsData);
+        if (atts.some(a => a.content_type?.includes('image'))) previewContent = '[图片]';
+        else previewContent = '[文件]';
+      } catch(e) { previewContent = '[附件]'; }
     }
-    if (!previewContent) previewContent = '[暂不支持的消息]';
 
     const suffix = authorName && authorName.length > 4 ? authorName.slice(-4) : '未知';
     const finalPreview = `[用户_${suffix}] ${previewContent}`;
 
-    // 👇 直接使用服务器接收到的毫秒时间，绝对精准
     const now = Date.now();
 
     await env.DB.prepare(
@@ -302,8 +318,7 @@ async function processIncomingMessage(payload, env, ctx) {
         `INSERT INTO messages (session_id, type, role, content, attachments, msg_id, timestamp, author_name, quote_msg_id, quote_content)
         VALUES (?, 'incoming', 'user', ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
-        sessionId, safeContent || '', attachmentsData || null, d.id || null,
-        now, authorName || '未知', quoteMsgId || null, quoteContent || null
+        sessionId, safeContent, attachmentsData, d.id, now, authorName, quoteMsgId, quoteContent
       ).run();
     }
 
@@ -368,7 +383,18 @@ async function handleApi(request, env, path, ctx) {
       const fileId = path.split('/').pop();
       const fileBuffer = await env.BOT_KV.get(`file:${fileId}`, 'arrayBuffer');
       if (!fileBuffer) return new Response('File Not Found', { status: 404 });
-      return new Response(fileBuffer, { headers: { 'Cache-Control': 'public, max-age=604800' } });
+
+      const uint8 = new Uint8Array(fileBuffer.slice(0, 4));
+      let contentType = 'application/octet-stream';
+      if (uint8[0] === 0xFF && uint8[1] === 0xD8) contentType = 'image/jpeg';
+      else if (uint8[0] === 0x89 && uint8[1] === 0x50) contentType = 'image/png';
+
+      return new Response(fileBuffer, {
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=604800'
+        }
+      });
     }
 
     if (path === '/api/login' && request.method === 'POST') {

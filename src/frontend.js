@@ -8,7 +8,9 @@ export const FRONTEND_HTML = `
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231890ff'/><text x='50' y='70' font-family='Arial, sans-serif' font-size='60' font-weight='bold' fill='white' text-anchor='middle'>:)</text></svg>">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; height: 100vh; display: flex; color: #333; overflow: hidden; }
+/* 👇 修复：限制视口高度，防止手机键盘弹起导致整体页面被挤长 */
+html, body { height: 100%; height: 100dvh; overflow: hidden; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; display: flex; color: #333; }
 
 /* 全局错误提示层 */
 #js-error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 99999; padding: 20px; color: #ff4d4f; flex-direction: column; }
@@ -27,7 +29,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* 登录 */
-#login-page { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; background: #f0f2f5; padding: 20px;}
+#login-page { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; background: #f0f2f5; padding: 20px; overflow-y: auto;}
 .login-box { background: white; padding: 40px 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); width: 100%; max-width: 320px; }
 .login-box h2 { text-align: center; margin-bottom: 25px; font-weight: 600; color: #1a1a1a; }
 .login-box input { width: 100%; padding: 12px 15px; margin-bottom: 20px; border: 1px solid #d9d9d9; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; background: #fafafa;}
@@ -35,13 +37,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .login-box button { width: 100%; padding: 12px; background: #1890ff; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; transition: background 0.2s;}
 
 /* 主界面 */
-#app { display: none; width: 100%; height: 100%; background: white; position: relative; }
+#app { display: none; width: 100%; height: 100%; height: 100dvh; background: white; position: relative; overflow: hidden; }
 
-.mobile-header { display: none; height: 60px; background: #fff; border-bottom: 1px solid #e8e8e8; align-items: center; padding: 0 15px; justify-content: space-between; flex-shrink: 0;}
+.mobile-header { display: none; height: 60px; background: #fff; border-bottom: 1px solid #e8e8e8; align-items: center; padding: 0 15px; justify-content: space-between; flex-shrink: 0; z-index: 10;}
 .menu-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px; color: #333;}
 
-.sidebar { width: 320px; background: #f7f9fa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; transition: transform 0.3s ease; flex-shrink: 0; z-index: 100;}
-.session-list { flex: 1; overflow-y: auto; padding: 10px; }
+.sidebar { width: 320px; background: #f7f9fa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; transition: transform 0.3s ease; flex-shrink: 0; z-index: 100; height: 100%;}
+.session-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px; }
 .session-item { padding: 12px 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 5px; background: #fff; border: 1px solid transparent;}
 .session-item:hover, .session-item.active { background: #e6f7ff; border-color: #91d5ff;}
 .session-name { font-weight: 600; margin-bottom: 4px; font-size: 14px; color: #333; padding-right: 30px; display: flex; align-items: center; gap: 6px;}
@@ -54,8 +56,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 
 .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; opacity: 0; transition: opacity 0.3s;}
 
-.chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative; min-width: 0;}
-.messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; scroll-behavior: smooth;}
+/* 聊天区 */
+.chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative; min-width: 0; height: 100%; min-height: 0; /* 👈 修复：防止 flex 子项撑破父级 */ }
+.messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px; display: flex; flex-direction: column; scroll-behavior: smooth;}
 
 .sidebar-header, .chat-header { height: 60px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 16px; background: #fff; color: #1a1a1a; border-bottom: 1px solid #e8e8e8; flex-shrink: 0; z-index: 10;}
 .sidebar-header { justify-content: flex-start; gap: 8px; }
@@ -97,7 +100,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .toggle-mode:hover { text-decoration: underline; }
 .cancel { color: #ff4d4f; }
 
-.input-area { padding: 10px 15px; background: #fff; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0;}
+/* 👇 修复：输入框区域固定底部，不被挤压 */
+.input-area { padding: 10px 15px; background: #fff; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
 .input-area textarea { flex: 1; height: 50px; padding: 12px; border: 1px solid #d9d9d9; border-radius: 8px; resize: none; font-size: 14px; font-family: inherit; outline: none; background: #fafafa;}
 .input-area textarea:focus { border-color: #1890ff; background: #fff;}
 .input-area button { padding: 0 20px; height: 40px; background: #1890ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; margin-bottom: 5px;}
@@ -123,6 +127,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .mute-chip { padding: 6px 12px; background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; border-radius: 16px; font-size: 13px; cursor: pointer;}
 .mute-chip.active { background: #1890ff; color: #fff; }
 
+/* 👇 修复：移动端布局 */
 @media (max-width: 768px) {
   #app { flex-direction: column; }
   .mobile-header { display: flex; }
@@ -132,7 +137,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
   .sidebar-overlay.open { display: block; opacity: 1; }
   .messages { padding: 15px; }
   .msg { max-width: 90%; }
-  .input-area { padding: 10px; gap: 8px;}
+  .input-area { padding: 10px; gap: 8px; }
   .input-area textarea { height: 45px; padding: 10px; font-size: 14px;}
   .modal-box { padding: 20px; }
 }
@@ -172,7 +177,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 }
 </style>
 <script>
-// 全局捕获 JS 错误，直接显示在页面上，防止白屏或卡死
 window.onerror = function(msg, url, line, col, error) {
   const errLayer = document.getElementById('js-error-layer');
   if (errLayer) {
@@ -320,7 +324,6 @@ function copyAuthorId(index, event) {
   copyIdDirect(id);
 }
 
-// ================= UI 基础 =================
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebar-overlay').classList.toggle('open');
@@ -429,7 +432,6 @@ function initWebSocket() {
   ws.onclose = () => setTimeout(initWebSocket, 5000);
 }
 
-// ================= 会话列表 =================
 async function loadSessions() {
   if (!isTokenValid()) return;
   const res = await fetch('/api/sessions', { headers: { 'Authorization': 'Bearer ' + token } });
@@ -486,80 +488,6 @@ async function deleteSession(index) {
   loadSessions();
 }
 
-// ================= 👇 语音播放专属逻辑 =================
-async function playVoice(index) {
-  const m = currentMsgs[index];
-  if (!m || !m.attachments) return;
-  const atts = JSON.parse(m.attachments);
-  const voiceAtt = atts.find(a => a.content_type && a.content_type.includes('voice'));
-  if (!voiceAtt || !voiceAtt.url) return showToast('该语音无法播放', 'error');
-
-  showToast('正在解码语音，请稍候...', 'info');
-
-  try {
-    // 1. 从 KV 下载原始数据
-    const res = await fetch(voiceAtt.url);
-    let buffer = await res.arrayBuffer();
-    let uint8 = new Uint8Array(buffer);
-
-    // 2. 剥离腾讯加在头部的 0x02 字节
-    if (uint8[0] === 0x02) {
-      uint8 = uint8.slice(1);
-    }
-
-    // 3. 动态引入 silk-wasm 进行纯前端解码
-    const { decode } = await import('https://esm.sh/silk-wasm@3.2.0');
-
-    // QQ 语音通常采样率为 24000Hz
-    const decodeResult = await decode(uint8, 24000);
-    const pcmData = decodeResult.data;
-
-    // 4. 将裸 PCM 包装为 WAV 格式
-    const wavBuffer = encodeWav(pcmData, 24000);
-
-    // 5. 生成 URL 并播放
-    const blob = new Blob([wavBuffer], { type: 'audio/wav' });
-    const audioUrl = URL.createObjectURL(blob);
-    const audio = new Audio(audioUrl);
-    audio.play();
-
-    // 释放内存
-    audio.onended = () => URL.revokeObjectURL(audioUrl);
-
-  } catch (e) {
-    console.error(e);
-    showToast('语音解码播放失败', 'error');
-  }
-}
-
-// 辅助函数：为 PCM 数据添加 WAV 头
-function encodeWav(pcmData, sampleRate) {
-  const buffer = new ArrayBuffer(44 + pcmData.length);
-  const view = new DataView(buffer);
-  const writeString = (view, offset, string) => {
-    for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
-  };
-
-    writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + pcmData.length, true);
-    writeString(view, 8, 'WAVE');
-    writeString(view, 12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // PCM format
-    view.setUint16(22, 1, true); // Mono
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeString(view, 36, 'data');
-    view.setUint32(40, pcmData.length, true);
-
-    const pcmView = new Uint8Array(buffer, 44);
-    pcmView.set(pcmData);
-    return buffer;
-}
-
-// ================= 消息列表渲染 =================
 async function loadMessages(sessionId, isPush) {
   if (!isTokenValid()) return;
   const res = await fetch('/api/messages?id=' + sessionId, { headers: { 'Authorization': 'Bearer ' + token } });
@@ -617,9 +545,6 @@ async function loadMessages(sessionId, isPush) {
             attHtml += '<div><span class="attachment-error">[' + escapeHTML(att.error) + ']</span></div>';
           } else if (att.content_type && att.content_type.startsWith('image/')) {
             attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
-          } else if (att.content_type && att.content_type.includes('voice')) {
-            // 👇 语音专属按钮，点击触发 WASM 解码
-            attHtml += '<span class="action-btn" style="display:inline-block; margin-top:8px; padding:6px 12px; border-color:#1890ff; color:#1890ff; font-weight:bold;" onclick="playVoice(' + i + ')">🎤 [语音] 点击播放</span>';
           } else {
             attHtml += '<a href="' + escapeHTML(att.url) + '" target="_blank" class="attachment-link">📄 [文件] 点击下载</a>';
           }
@@ -652,7 +577,6 @@ async function loadMessages(sessionId, isPush) {
   setTimeout(scrollToBottom, 200);
 }
 
-// ================= 禁言管理专属面板 =================
 async function openMutePanel(index) {
   const memberOpenid = currentMsgs[index].author_name;
   const loadingHtml = '<div class="mute-status-box">' +
@@ -726,7 +650,6 @@ window.selectMuteTime = function(el, mins) {
   document.getElementById('custom-mute-mins').value = mins;
 };
 
-// ================= 通用操作 =================
 function insertAtTag(index) {
   const authorId = currentMsgs[index].author_name;
   if (!authorId) return;
