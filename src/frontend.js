@@ -255,7 +255,7 @@ window.onerror = function(msg, url, line, col, error) {
 <script>
 let token = localStorage.getItem('bot_token');
 let expiresAt = localStorage.getItem('bot_expires_at');
-let myBotId = localStorage.getItem('custom_bot_id') || ''; // 👈 自己填写的 Bot ID
+let myBotId = localStorage.getItem('custom_bot_id') || '';
 let currentSession = null;
 let replyToMsg = null;
 let quoteToMsg = null;
@@ -284,7 +284,6 @@ window.scrollToBottom = function() {
   if (msgEl) msgEl.scrollTop = msgEl.scrollHeight;
 };
 
-// 👇 修改显示逻辑：映射 > 自定义 Bot ID 后四位 > 单纯 "Bot"
 function formatName(id, isGroup = false, isBot = false) {
   if (idMap[id]) return idMap[id];
   if (isBot) {
@@ -312,7 +311,6 @@ function escapeHTML(str) {
   return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
 }
 
-// 👇 设置 Bot ID 弹窗
 async function openBotSettings() {
   const html = '<div style="margin-bottom:15px;font-size:13px;color:#888;">请填入机器人的真实 OpenID，用于在聊天区识别和显示。</div>' +
   '<input type="text" id="bot-id-input" class="modal-input" value="' + escapeHTML(myBotId) + '" placeholder="填写 Bot 的 OpenID">';
@@ -342,11 +340,25 @@ async function loadMappings() {
   } catch (e) {}
 }
 
-async function editMapping(id, event) {
+// 👇 修复：通过索引获取数据，避免直接传字符串导致语法截断
+async function editSessionMapping(index, event) {
   if (event) event.stopPropagation();
+  const id = sessionsData[index].id;
+  await showMappingDialog(id);
+}
+
+async function editMsgMapping(index, event) {
+  if (event) event.stopPropagation();
+  const m = currentMsgs[index];
+  if (!m) return;
+  const id = m.type === 'outgoing' ? (myBotId || 'Bot') : (m.author_name || '未知用户');
+  await showMappingDialog(id);
+}
+
+async function showMappingDialog(id) {
   if (!id || id === '未知用户') return;
 
-  const currentName = idMap[id] || (id === myBotId ? formatName(id, false, true) : formatName(id));
+  const currentName = idMap[id] || formatName(id, false, id === myBotId);
   const html = '<div style="margin-bottom:15px;font-size:13px;color:#888;word-break:break-all;">ID: ' + escapeHTML(id) + '</div>' +
   '<input type="text" id="mapping-input" class="modal-input" value="' + escapeHTML(currentName) + '" placeholder="输入备注昵称">';
 
@@ -499,7 +511,7 @@ async function loadSessions() {
   listEl.innerHTML = sessionsData.map((s, i) => {
     const displayName = formatName(s.id, s.is_group === 1);
     return '<div class="session-item ' + (currentSession?.id === s.id ? 'active' : '') + '" onclick="selectSession(' + i + ')">' +
-    '<div class="session-name" title="点击设置备注" onclick="editMapping(\'' + escapeHTML(s.id) + '\', event)">' + (s.is_group ? '👥 ' : '👤 ') + displayName + '</div>' +
+    '<div class="session-name" title="点击设置备注" onclick="editSessionMapping(' + i + ', event)">' + (s.is_group ? '👥 ' : '👤 ') + displayName + '</div>' +
     '<div class="session-id">' +
     '<span class="full-id">' + escapeHTML(s.id) + '</span>' +
     '</div>' +
@@ -579,11 +591,11 @@ async function loadMessages(sessionId, isPush) {
 
     let authorHtml = '';
     if (isOut) {
-      authorHtml = '<div class="msg-author bot-author" title="点击设置备注" onclick="editMapping(\'' + escapeHTML(myBotId || 'Bot') + '\', event)">' +
+      authorHtml = '<div class="msg-author bot-author" title="点击设置备注" onclick="editMsgMapping(' + i + ', event)">' +
       '<div class="avatar-circle bot-avatar">A</div> ' + displayName +
       '</div>';
     } else {
-      authorHtml = '<div class="msg-author" title="点击设置备注" onclick="editMapping(\'' + escapeHTML(rawAuthorName) + '\', event)">' +
+      authorHtml = '<div class="msg-author" title="点击设置备注" onclick="editMsgMapping(' + i + ', event)">' +
       '<div class="avatar-circle" style="background: ' + color + ';">' + (rawAuthorName.slice(-2, -1) || 'U') + '</div> ' + displayName +
       '</div>';
     }
