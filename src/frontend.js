@@ -116,14 +116,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .input-area textarea:focus { border-color: #1890ff; background: #fff;}
 .input-area button { padding: 0 20px; height: 40px; background: #1890ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; margin-bottom: 5px;}
 
-.emoji-toggle { background: none; border: none; font-size: 22px; cursor: pointer; padding: 0 8px; margin-bottom: 5px; line-height: 1;}
-
-/* 表情面板 */
-#emoji-panel { display: none; padding: 10px 15px; background: #fff; border-top: 1px solid #e8e8e8; flex-wrap: wrap; gap: 8px; flex-shrink: 0; max-height: 200px; overflow-y: auto;}
-.emoji-section-title { font-size: 12px; color: #888; width: 100%; margin-top: 5px;}
-.emoji-btn { cursor: pointer; font-size: 20px; padding: 4px; border-radius: 6px; transition: background 0.2s; user-select: none; display: inline-flex; align-items: center; justify-content: center;}
-.emoji-btn:hover { background: #f0f0f0; }
-
 .reply-tip { font-size: 13px; padding: 8px 15px; display: none; background: #fffbe6; border-bottom: 1px solid #ffe58f; color: #fa8c16; justify-content: space-between; align-items: center;}
 .reply-tip span.cancel { cursor: pointer; color: #1890ff; font-weight: 500; margin-left: 10px;}
 
@@ -176,7 +168,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 
   #app { background: #121212; }
   .sidebar { background: #1e1e1e; border-color: #333; }
-  .sidebar-header, .chat-header, .mobile-header, .input-area, #emoji-panel { background: #1e1e1e; border-color: #333; color: #e0e0e0; }
+  .sidebar-header, .chat-header, .mobile-header, .input-area { background: #1e1e1e; border-color: #333; color: #e0e0e0; }
   .menu-btn { color: #e0e0e0; }
 
   .session-item { background: #2a2a2a; border-color: #333; }
@@ -202,7 +194,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
   .mute-status-box { background: #2a2a2a; border-color: #333; }
   .quote-box { background: rgba(255,255,255,0.1); color: #aaa; }
   .reply-tip { background: #3b3214; border-color: #5a4a1a; color: #e6a23c; }
-  .emoji-btn:hover { background: #333; }
 }
 </style>
 </head>
@@ -243,42 +234,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 
 <div class="messages" id="messages"></div>
 
-<!-- 👇 表情面板 -->
-<div id="emoji-panel">
-<span class="emoji-section-title">常用系统表情</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:4>')" title="得意">😎</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:14>')" title="微笑">😊</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:5>')" title="流泪">😭</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:9>')" title="大哭">😭</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:12>')" title="调皮">😜</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:16>')" title="酷">😎</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:21>')" title="可爱">😊</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:32>')" title="疑问">🤔</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:42>')" title="爱情">❤️</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:63>')" title="玫瑰">🌹</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:66>')" title="爱心">💖</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:76>')" title="赞">👍</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:79>')" title="胜利">✌️</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:89>')" title="西瓜">🍉</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:96>')" title="冷汗">😅</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:99>')" title="鼓掌">👏</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:124>')" title="OK">👌</span>
-<span class="emoji-btn" onclick="insertEmoji('<emoji:179>')" title="doge">🐶</span>
-
-<span class="emoji-section-title">Unicode Emoji</span>
-<span class="emoji-btn" onclick="insertEmoji('😀')">😀</span>
-<span class="emoji-btn" onclick="insertEmoji('😂')">😂</span>
-<span class="emoji-btn" onclick="insertEmoji('😍')">😍</span>
-<span class="emoji-btn" onclick="insertEmoji('🤔')">🤔</span>
-<span class="emoji-btn" onclick="insertEmoji('👍')">👍</span>
-<span class="emoji-btn" onclick="insertEmoji('🎉')">🎉</span>
-<span class="emoji-btn" onclick="insertEmoji('🔥')">🔥</span>
-<span class="emoji-btn" onclick="insertEmoji('❤️')">❤️</span>
-</div>
-
 <div class="input-area">
-<!-- 👇 表情切换按钮 -->
-<button class="emoji-toggle" onclick="toggleEmojiPanel()" title="表情">😊</button>
 <textarea id="msg-input" placeholder="输入消息..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
 <button onclick="sendMessage()">发送</button>
 </div>
@@ -317,10 +273,13 @@ window.fetch = async function(...args) {
   return res;
 };
 
-function getShortCode(id) {
-  if (!id || id === 'Bot') return id;
-  if (id.length <= 6) return id;
-  return '...' + id.slice(-4);
+// 👇 统一的名称格式化函数
+function formatName(id, isGroup = false, isBot = false) {
+  if (!id || id === '未知用户') return '用户_未知';
+  if (isBot) return 'Bot';
+  const suffix = id.length > 4 ? id.slice(-4) : id;
+  if (isGroup) return \`群聊_\${suffix}\`;
+  return \`用户_\${suffix}\`;
 }
 
 function getColor(id) {
@@ -341,22 +300,6 @@ async function copyId(id, event) {
   } catch (err) {
     showToast('复制失败，请手动选择', 'error');
   }
-}
-
-// 👇 表情面板逻辑
-function toggleEmojiPanel() {
-  const panel = document.getElementById('emoji-panel');
-  panel.style.display = panel.style.display === 'none' || !panel.style.display ? 'flex' : 'none';
-}
-
-function insertEmoji(emoji) {
-  const input = document.getElementById('msg-input');
-  const start = input.selectionStart;
-  const end = input.selectionEnd;
-  const text = input.value;
-  input.value = text.substring(0, start) + emoji + text.substring(end);
-  input.focus();
-  input.selectionStart = input.selectionEnd = start + emoji.length;
 }
 
 // ================= UI 基础 =================
@@ -479,18 +422,18 @@ async function loadSessions() {
   sessionsData = await res.json();
 
   const listEl = document.getElementById('session-list');
-  listEl.innerHTML = sessionsData.map(s => \`
-  <div class="session-item \${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('\${escapeHTML(s.id)}')">
-  <div class="session-name">
-  \${s.is_group ? '👥 群聊' : '👤 私聊'}
-  </div>
-  <div class="session-id" title="点击复制" onclick="copyId('\${escapeHTML(s.id)}', event)">
-  <span style="color: #1890ff; text-decoration: underline; font-weight: 500;">\${escapeHTML(getShortCode(s.id))}</span>
-  </div>
-  <div class="session-preview">\${escapeHTML(s.last_message || '暂无消息')}</div>
-  <span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession('\${escapeHTML(s.id)}')">🗑️</span>
-  </div>
-  \`).join('');
+  listEl.innerHTML = sessionsData.map(s => {
+    const displayName = formatName(s.id, s.is_group === 1);
+    return \`
+    <div class="session-item \${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('\${escapeHTML(s.id)}')">
+    <div class="session-name">\${s.is_group ? '👥 ' : '👤 '}\${displayName}</div>
+    <div class="session-id" title="点击复制完整 ID" onclick="copyId('\${escapeHTML(s.id)}', event)">
+    <span style="color: #1890ff; text-decoration: underline; font-weight: 500;">\${displayName}</span>
+    </div>
+    <div class="session-preview">\${escapeHTML(s.last_message || '暂无消息')}</div>
+    <span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession('\${escapeHTML(s.id)}')">🗑️</span>
+    </div>
+    \`}).join('');
 }
 
 async function selectSession(id) {
@@ -499,7 +442,7 @@ async function selectSession(id) {
     return;
   }
   currentSession = sessionsData.find(s => s.id === id);
-  const shortTitle = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' (' + getShortCode(id) + ')';
+  const shortTitle = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' (' + formatName(id, currentSession.is_group === 1) + ')';
   document.getElementById('chat-title').innerText = shortTitle;
   document.getElementById('mobile-title').innerText = shortTitle;
 
@@ -550,18 +493,18 @@ async function loadMessages(sessionId, isPush) {
     const showReplyBtn = !isOut && isWithin5Mins;
     const showGroupOps = !isOut && isGroup;
 
-    let rawAuthorName = isOut ? (isGroup ? (currentSession.bot_openid || 'Bot') : 'Bot') : (m.author_name || '用户');
-    let shortName = getShortCode(rawAuthorName);
+    let rawAuthorName = isOut ? 'Bot' : (m.author_name || '未知用户');
+    let displayName = isOut ? 'Bot' : formatName(rawAuthorName, false);
     let color = getColor(rawAuthorName);
 
     let authorHtml = '';
     if (isOut) {
       authorHtml = \`<div class="msg-author" title="点击复制" onclick="copyId('\${escapeHTML(rawAuthorName)}', event)">
-      <div class="avatar-circle" style="background: \${color};">B</div> Bot \${isGroup ? shortName : ''}
+      <div class="avatar-circle" style="background: \${color};">B</div> Bot \${isGroup && rawAuthorName !== 'Bot' ? formatName(rawAuthorName, false) : ''}
       </div>\`;
     } else {
       authorHtml = \`<div class="msg-author" title="点击复制" onclick="copyId('\${escapeHTML(rawAuthorName)}', event)">
-      <div class="avatar-circle" style="background: \${color};">\${rawAuthorName.slice(-2, -1) || 'U'}</div> 用户 \${shortName}
+      <div class="avatar-circle" style="background: \${color};">\${rawAuthorName.slice(-2, -1) || 'U'}</div> \${displayName}
       </div>\`;
     }
 
@@ -611,7 +554,7 @@ async function openMutePanel(memberOpenid) {
   </div>
   <div class="modal-btns"><button class="modal-btn cancel" onclick="closeModal()">关闭</button></div>
   \`;
-  showModal({ title: \`管理成员: \${getShortCode(memberOpenid)}\`, html: loadingHtml, buttons: [] });
+  showModal({ title: \`管理成员: \${formatName(memberOpenid)}\`, html: loadingHtml, buttons: [] });
 
   try {
     const res = await fetch(\`/api/mute_status?group_id=\${currentSession.id}&member_id=\${memberOpenid}\`, {
@@ -647,7 +590,7 @@ async function openMutePanel(memberOpenid) {
       btns.unshift({ text: '确认禁言', value: 'mute', type: 'danger' });
     }
 
-    const action = await showModal({ title: \`成员: \${getShortCode(memberOpenid)}\`, html: statusHtml, buttons: btns });
+    const action = await showModal({ title: \`成员: \${formatName(memberOpenid)}\`, html: statusHtml, buttons: btns });
 
     if (action === 'unmute') {
       const req = await fetch('/api/unmute', {
@@ -725,7 +668,7 @@ async function recallMessage(msgId) {
 
 async function kickMember(memberOpenid) {
   const html = \`
-  <div style="margin-bottom:15px;font-size:14px;">确定要将 <b>\${getShortCode(memberOpenid)}</b> 踢出群吗？</div>
+  <div style="margin-bottom:15px;font-size:14px;">确定要将 <b>\${formatName(memberOpenid)}</b> 踢出群吗？</div>
   <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;color:#ff4d4f;">
   <input type="checkbox" id="kick-blacklist" style="width:16px;height:16px;accent-color:#ff4d4f;">
   同时加入群黑名单
@@ -763,8 +706,7 @@ async function sendMessage() {
   if (quoteToMsg) { body.quoteMsgId = quoteToMsg.msgId; body.quoteContent = quoteToMsg.content; }
 
   document.getElementById('msg-input').value = '';
-  const btn = document.querySelector('.input-area button[type="button"]') || document.querySelector('.input-area button:last-child');
-  const origText = btn.innerText;
+  const btn = document.querySelector('.input-area button');
   btn.disabled = true; btn.innerText = '...';
 
   try {
@@ -775,7 +717,7 @@ async function sendMessage() {
   } catch (e) {
     showToast(e.message, 'error');
     if (!document.getElementById('msg-input').value) document.getElementById('msg-input').value = content;
-  } finally { btn.disabled = false; btn.innerText = origText; }
+  } finally { btn.disabled = false; btn.innerText = '发送'; }
 }
 </script>
 </body>
