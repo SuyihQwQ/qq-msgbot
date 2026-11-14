@@ -340,7 +340,6 @@ async function loadMappings() {
   } catch (e) {}
 }
 
-// 👇 修复：通过索引获取数据，避免直接传字符串导致语法截断
 async function editSessionMapping(index, event) {
   if (event) event.stopPropagation();
   const id = sessionsData[index].id;
@@ -534,6 +533,7 @@ async function selectSession(index) {
 
   cancelReply();
   document.getElementById('messages').dataset.count = -1;
+  document.getElementById('messages').dataset.lastMsgId = ''; // 切换会话时重置
   await loadMessages(id, false);
   loadSessions();
 
@@ -565,7 +565,10 @@ async function loadMessages(sessionId, isPush) {
   }
 
   const msgEl = document.getElementById('messages');
-  if (msgEl.dataset.count == msgs.length) return;
+  // 👇 修复：使用最后一条消息的 msg_id 作为基准，彻底解决满 500 条不更新的问题
+  const lastMsgId = msgs.length > 0 ? msgs[msgs.length - 1].msg_id : 'empty';
+  if (msgEl.dataset.lastMsgId === lastMsgId) return;
+  msgEl.dataset.lastMsgId = lastMsgId;
   msgEl.dataset.count = msgs.length;
 
   currentMsgs = msgs;

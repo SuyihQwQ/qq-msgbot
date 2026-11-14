@@ -57,7 +57,7 @@ async function ensureTables(env) {
                        )`),
                        env.DB.prepare(`CREATE TABLE IF NOT EXISTS id_mapping (id TEXT PRIMARY KEY, nickname TEXT NOT NULL)`)
     ]);
-    // 兼容旧表：如果之前有 bot_openid 字段，不用删，不影响
+    // 兼容老数据
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN attachments TEXT`); } catch (e) {}
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN quote_msg_id TEXT`); } catch (e) {}
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN quote_content TEXT`); } catch (e) {}
@@ -306,7 +306,7 @@ async function processSystemEvent(payload, env, ctx) {
     let sessionId = ''; let isGroup = 1; let content = '';
 
     switch (t) {
-      case 'GROUP_ADD_ROBOT': sessionId = d.group_openid; content = `[系统] 机器人加入了群聊 (操作者: ${d.op_member_openid || '未知'})`; break;
+      case 'GROUP_ADD_ROBOT': sessionId = d.group_openid; content = `[系统] 机器人加入了群聊`; break;
       case 'GROUP_DEL_ROBOT': sessionId = d.group_openid; content = `[系统] 机器人被移出了群聊`; break;
       case 'GROUP_MEMBER_ADD': sessionId = d.group_openid; content = `[系统] 新成员 ${d.member_openid || '未知'} 加入了群聊`; break;
       case 'GROUP_MEMBER_REMOVE': sessionId = d.group_openid; content = `[系统] 成员 ${d.member_openid || '未知'} 退出了群聊`; break;
@@ -396,10 +396,17 @@ async function handleApi(request, env, path, ctx) {
       return Response.json(results);
     }
 
+    // 👇 修复：改用子查询获取最新的 500 条记录
     if (path === '/api/messages' && request.method === 'GET') {
       const sessionId = new URL(request.url).searchParams.get('id');
       if (!sessionId) return Response.json({ error: 'Missing ID' }, { status: 400 });
-      const { results } = await env.DB.prepare(`SELECT * FROM messages WHERE session_id = ? ORDER BY timestamp ASC LIMIT 500`).bind(sessionId).all();
+
+      const { results } = await env.DB.prepare(
+        `SELECT * FROM (
+          SELECT * FROM messages WHERE session_id = ? ORDER BY timestamp DESC LIMIT 500
+        ) ORDER BY timestamp ASC`
+      ).bind(sessionId).all();
+
       return Response.json(results);
     }
 
