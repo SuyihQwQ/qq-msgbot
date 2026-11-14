@@ -83,7 +83,12 @@ async function processAttachments(env, attachments) {
     const isMedia = type.startsWith('image/') || type.includes('voice');
     if (isMedia) {
       try {
-        const fileRes = await fetch(att.url);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+
+        const fileRes = await fetch(att.url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
         if (!fileRes.ok) throw new Error('下载失败');
         const buffer = await fileRes.arrayBuffer();
         if (buffer.byteLength > 2 * 1024 * 1024) {
@@ -93,7 +98,7 @@ async function processAttachments(env, attachments) {
         await env.BOT_KV.put(`file:${fileId}`, buffer, { expirationTtl: 604800 });
         processed.push({ ...att, url: `/api/file/${fileId}` });
       } catch (err) {
-        processed.push({ ...att, url: '', error: '转存失败或已过期' });
+        processed.push({ ...att, url: '', error: '转存失败/超时/已过期' });
       }
     } else {
       processed.push({ ...att, url: '', error: `${type.includes('video') ? '视频' : '普通文件'}不支持转存` });
@@ -136,11 +141,15 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   const body = {};
   if (msgId) { body.msg_id = msgId; body.msg_seq = msgSeq; }
   if (quoteMsgId) { body.message_reference = { message_id: quoteMsgId }; }
+
+  // 如果包含 @ 标签，切换为 Markdown (msg_type: 2)
   if (content.includes('<qqbot-at-user') || content.includes('<qqbot-at-everyone')) {
     body.msg_type = 2; body.markdown = { content: content }; body.content = '';
   } else {
+    // 否则当作普通文本，官方表情 <emoji:id> 会在这里被解析
     body.msg_type = 0; body.content = content;
   }
+
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `QQBot ${token}` }, body: JSON.stringify(body) });
   const data = await res.json();
   if (data.code) throw new Error(`发送失败: ${data.code} ${data.message || ''}`);
@@ -269,7 +278,6 @@ async function processIncomingMessage(payload, env, ctx) {
     }
 
     const attachmentsData = await processAttachments(env, d.attachments);
-
     let previewContent = safeContent;
     if (!previewContent && d.attachments) {
       const type = d.attachments[0].content_type || '';
@@ -280,7 +288,6 @@ async function processIncomingMessage(payload, env, ctx) {
     }
     if (!previewContent) previewContent = '[暂不支持的消息]';
 
-    // 👇 新增：为了不撑破列表，取用户 ID 后 6 位作为前缀
     const shortAuthor = authorName.length > 6 ? authorName.slice(-6) : authorName;
     const finalPreview = `[${shortAuthor}] ${previewContent}`;
 
@@ -345,11 +352,14 @@ async function processSystemEvent(payload, env, ctx) {
 // ================= API 路由 =================
 async function handleApi(request, env, path, ctx) {
   try {
+    if (!env.WEB_PASSWORD) {
+      return Response.json({ error: 'SERVER_CONFIG_ERROR', message: 'WEB_PASSWORD not set' }, { status: 500 });
+    }
+
     if (path === '/api/health' && request.method === 'GET') {
       const missingEnvs = [];
       if (!env.QQ_APP_ID) missingEnvs.push('QQ_APP_ID');
       if (!env.QQ_CLIENT_SECRET) missingEnvs.push('QQ_CLIENT_SECRET');
-      if (!env.WEB_PASSWORD) missingEnvs.push('WEB_PASSWORD');
       if (missingEnvs.length > 0) return Response.json({ error: 'ENV_MISSING', missing: missingEnvs }, { status: 500 });
       if (!env.DB || !env.BOT_KV) return Response.json({ error: 'DB_NOT_BOUND' }, { status: 500 });
       return Response.json({ ok: true });
@@ -408,7 +418,6 @@ async function handleApi(request, env, path, ctx) {
         quoteMsgId || null, quoteContent || null
       ).run();
 
-      // 👇 修复：机器人发消息后，同步更新左侧列表的预览内容
       await env.DB.prepare(`UPDATE sessions SET last_active = ?, last_message = ? WHERE id = ?`).bind(now, `[我] ${content}`, sessionId).run();
 
       ctx.waitUntil(env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('global')).broadcast({ type: 'update', sessionId }));
@@ -479,9 +488,15 @@ async function handleQQWebhook(request, env, ctx) {
 
     const signature = request.headers.get('X-Signature-Ed25519');
     const timestamp = request.headers.get('X-Signature-Timestamp');
-    if (signature && timestamp) {
-      const valid = await verifyQQSignature(env, signature, timestamp, rawBody);
-      if (!valid) console.warn('验签未通过');
+
+    if (!signature || !timestamp) {
+      return new Response('Missing Signature', { status: 401 });
+    }
+
+    const valid = await verifyQQSignature(env, signature, timestamp, rawBody);
+    if (!valid) {
+      console.warn('⛔ 验签未通过，拒绝处理请求');
+      return new Response('Invalid Signature', { status: 401 });
     }
 
     const t = payload.t;
@@ -492,7 +507,10 @@ async function handleQQWebhook(request, env, ctx) {
     else if (SYSTEM_EVENTS.includes(t)) ctx.waitUntil(processSystemEvent(payload, env, ctx));
 
     return Response.json({ ok: true });
-  } catch (e) { return new Response('Bad Request', { status: 400 }); }
+  } catch (e) {
+    console.error('Webhook 解析异常:', e);
+    return new Response('Bad Request', { status: 400 });
+  }
 }
 
 // ================= 路由入口 =================
