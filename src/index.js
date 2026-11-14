@@ -20,10 +20,8 @@ function hexToBytes(hex) {
   return bytes;
 }
 
-// 👇 修改：优先提取转写文本
 function parseMessageContent(d) {
   let contentText = d.content || '';
-
   if (!contentText.trim() && d.attachments && d.attachments.length > 0) {
     const voiceAtt = d.attachments.find(att => att.content_type?.includes('voice'));
     if (voiceAtt) {
@@ -32,7 +30,6 @@ function parseMessageContent(d) {
       return `[语音]`;
     }
   }
-
   contentText = contentText.replace(/<faceType=[^>]+>/gi, '[表情]');
   contentText = contentText.replace(/<face[^>]+>/gi, '[表情]');
   contentText = contentText.replace(/<@!?([A-Za-z0-9]+)>/gi, (match, openid) => `@${openid}`);
@@ -52,15 +49,15 @@ async function ensureTables(env) {
   if (dbInitialized) return;
   try {
     await env.DB.batch([
-      env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, is_group INTEGER NOT NULL, name TEXT, last_active INTEGER, last_message TEXT, bot_openid TEXT)`),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, is_group INTEGER NOT NULL, name TEXT, last_active INTEGER, last_message TEXT)`),
                        env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
                          id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, type TEXT NOT NULL, role TEXT NOT NULL,
                          content TEXT NOT NULL, attachments TEXT, msg_id TEXT, timestamp INTEGER, is_passive INTEGER DEFAULT 0,
                          author_name TEXT, quote_msg_id TEXT, quote_content TEXT
                        )`),
-                       env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)`)
+                       env.DB.prepare(`CREATE TABLE IF NOT EXISTS id_mapping (id TEXT PRIMARY KEY, nickname TEXT NOT NULL)`)
     ]);
-    try { await env.DB.exec(`ALTER TABLE sessions ADD COLUMN bot_openid TEXT`); } catch (e) {}
+    // 兼容旧表：如果之前有 bot_openid 字段，不用删，不影响
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN attachments TEXT`); } catch (e) {}
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN quote_msg_id TEXT`); } catch (e) {}
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN quote_content TEXT`); } catch (e) {}
@@ -87,23 +84,16 @@ export class ChatRoom extends DurableObject {
 }
 
 // ================= KV 文件转存 =================
-// 👇 修改：完全移除语音，只转存图片
 async function processAttachments(env, attachments) {
   if (!attachments || attachments.length === 0) return null;
   const processed = [];
   for (const att of attachments) {
     const type = att.content_type || '';
-
-    // 只有纯图片才存入 KV
     if (type.startsWith('image/')) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-        const fileRes = await fetch(att.url, {
-          signal: controller.signal,
-          headers: { 'Referer': 'https://q.qq.com/' }
-        });
+        const fileRes = await fetch(att.url, { signal: controller.signal, headers: { 'Referer': 'https://q.qq.com/' } });
         clearTimeout(timeoutId);
 
         if (!fileRes.ok) throw new Error('下载失败');
@@ -118,7 +108,6 @@ async function processAttachments(env, attachments) {
         processed.push({ ...att, url: '', error: '图片已过期或无法加载' });
       }
     }
-    // 语音、视频、普通文件忽略，不再下载
   }
   return processed.length > 0 ? JSON.stringify(processed) : null;
 }
@@ -141,14 +130,6 @@ async function getAccessToken(env) {
     return data.access_token;
   })();
   try { return await tokenPromise; } catch (e) { tokenPromise = null; throw e; }
-}
-
-async function getBotState(env, groupOpenid) {
-  const token = await getAccessToken(env);
-  const res = await fetch(`${QQ_SEND_BASE}/groups/${groupOpenid}/bot_state`, { headers: { Authorization: `QQBot ${token}` } });
-  const data = await res.json();
-  if (data.code) throw new Error(`bot_state 失败: ${data.code}`);
-  return data;
 }
 
 async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgSeq = 1, quoteMsgId = null) {
@@ -273,14 +254,6 @@ async function processIncomingMessage(payload, env, ctx) {
     const authorName = authorOpenid ? authorOpenid : '未知用户';
     if (!sessionId) return;
 
-    let session = await env.DB.prepare(`SELECT * FROM sessions WHERE id = ?`).bind(sessionId).first();
-    if (isGroup && session && !session.bot_openid) {
-      try {
-        const bs = await getBotState(env, sessionId);
-        await env.DB.prepare(`UPDATE sessions SET bot_openid = ? WHERE id = ?`).bind(bs.member_openid, sessionId).run();
-      } catch (e) {}
-    }
-
     let safeContent = parseMessageContent(d);
     let quoteMsgId = null;
     let quoteContent = null;
@@ -293,7 +266,6 @@ async function processIncomingMessage(payload, env, ctx) {
 
     const attachmentsData = await processAttachments(env, d.attachments);
 
-    // 如果附件全是语音，content 会被解析为 [语音] XXX，preview 直接用 content
     let previewContent = safeContent;
     if (!previewContent && attachmentsData) {
       try {
@@ -334,7 +306,7 @@ async function processSystemEvent(payload, env, ctx) {
     let sessionId = ''; let isGroup = 1; let content = '';
 
     switch (t) {
-      case 'GROUP_ADD_ROBOT': sessionId = d.group_openid; content = `[系统] 机器人加入了群聊 (操作者: ${d.op_member_openid || '未知'})`; try { const bs = await getBotState(env, sessionId); await env.DB.prepare(`UPDATE sessions SET bot_openid = ? WHERE id = ?`).bind(bs.member_openid, sessionId).run(); } catch(e){} break;
+      case 'GROUP_ADD_ROBOT': sessionId = d.group_openid; content = `[系统] 机器人加入了群聊 (操作者: ${d.op_member_openid || '未知'})`; break;
       case 'GROUP_DEL_ROBOT': sessionId = d.group_openid; content = `[系统] 机器人被移出了群聊`; break;
       case 'GROUP_MEMBER_ADD': sessionId = d.group_openid; content = `[系统] 新成员 ${d.member_openid || '未知'} 加入了群聊`; break;
       case 'GROUP_MEMBER_REMOVE': sessionId = d.group_openid; content = `[系统] 成员 ${d.member_openid || '未知'} 退出了群聊`; break;
@@ -390,10 +362,7 @@ async function handleApi(request, env, path, ctx) {
       else if (uint8[0] === 0x89 && uint8[1] === 0x50) contentType = 'image/png';
 
       return new Response(fileBuffer, {
-        headers: {
-          'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=604800'
-        }
+        headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=604800' }
       });
     }
 
@@ -407,6 +376,20 @@ async function handleApi(request, env, path, ctx) {
     if (authHeader !== `Bearer ${env.WEB_PASSWORD}`) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     await ensureTables(env);
+
+    if (path === '/api/mappings' && request.method === 'GET') {
+      const { results } = await env.DB.prepare(`SELECT * FROM id_mapping`).all();
+      return Response.json(results);
+    }
+
+    if (path === '/api/mapping' && request.method === 'POST') {
+      const { id, nickname } = await request.json();
+      if (!id || !nickname) return Response.json({ error: '参数缺失' }, { status: 400 });
+      await env.DB.prepare(
+        `INSERT INTO id_mapping (id, nickname) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET nickname = excluded.nickname`
+      ).bind(id, nickname).run();
+      return Response.json({ ok: true });
+    }
 
     if (path === '/api/sessions' && request.method === 'GET') {
       const { results } = await env.DB.prepare(`SELECT * FROM sessions ORDER BY last_active DESC LIMIT 100`).all();

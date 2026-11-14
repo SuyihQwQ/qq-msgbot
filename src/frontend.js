@@ -9,27 +9,22 @@ export const FRONTEND_HTML = `
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-/* 👇 修复：强制全屏与防抖 */
 html, body { height: 100%; height: 100dvh; overflow: hidden; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; display: flex; color: #333; }
 
-/* 全局错误提示层 */
 #js-error-layer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 99999; padding: 20px; color: #ff4d4f; flex-direction: column; }
 #js-error-layer h2 { margin-bottom: 10px; }
 #js-error-layer pre { white-space: pre-wrap; font-size: 13px; background: #f5f5f5; padding: 15px; border-radius: 8px; overflow: auto; }
 
-/* 通用 Toast */
 .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 14px; z-index: 10000; opacity: 0; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55); pointer-events: none; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(4px);}
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.success { background: rgba(82, 196, 26, 0.95); }
 .toast.error { background: rgba(255, 77, 79, 0.95); }
 
-/* Loading */
 #loading-page { display: flex; width: 100%; height: 100%; justify-content: center; align-items: center; font-size: 15px; color: #666; flex-direction: column; gap: 12px; background: #f0f2f5;}
 .spinner { width: 36px; height: 36px; border: 3px solid #d9d9d9; border-top-color: #1890ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* 登录 */
 #login-page { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; background: #f0f2f5; padding: 20px; overflow-y: auto;}
 .login-box { background: white; padding: 40px 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); width: 100%; max-width: 320px; }
 .login-box h2 { text-align: center; margin-bottom: 25px; font-weight: 600; color: #1a1a1a; }
@@ -37,8 +32,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .login-box input:focus { border-color: #1890ff; background: #fff;}
 .login-box button { width: 100%; padding: 12px; background: #1890ff; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; transition: background 0.2s;}
 
-/* 主界面 */
-/* 👇 修复：使用绝对定位铺满全屏，避免 flex 高度计算被系统键盘挤爆 */
 #app { display: none; width: 100%; height: 100%; height: 100dvh; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: white; overflow: hidden; }
 
 .mobile-header { display: none; height: 60px; background: #fff; border-bottom: 1px solid #e8e8e8; align-items: center; padding: 0 15px; justify-content: space-between; flex-shrink: 0; z-index: 10;}
@@ -58,11 +51,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 
 .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; opacity: 0; transition: opacity 0.3s;}
 
-/* 聊天区 */
-.chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative; min-width: 0; height: 100%; min-height: 0; /* 防止 flex 子项撑破 */ }
-
-/* 👇 修复：给消息列表底部增加 40px 内边距，防止最后一条消息被输入框遮挡 */
-.messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 20px 40px 20px; display: flex; flex-direction: column; scroll-behavior: smooth; }
+.chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative; min-width: 0; height: 100%; min-height: 0; }
+.messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 20px 60px 20px; display: flex; flex-direction: column; }
 
 .sidebar-header, .chat-header { height: 60px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 16px; background: #fff; color: #1a1a1a; border-bottom: 1px solid #e8e8e8; flex-shrink: 0; z-index: 10;}
 .sidebar-header { justify-content: flex-start; gap: 8px; }
@@ -70,9 +60,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .msg { margin-bottom: 20px; display: flex; flex-direction: column; max-width: 85%; }
 .msg.incoming { align-self: flex-start; }
 .msg.outgoing { align-self: flex-end; align-items: flex-end; }
+
 .msg-author { font-size: 12px; color: #888; margin-bottom: 6px; padding: 0 4px; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: opacity 0.2s;}
 .msg-author:hover { opacity: 0.7; }
+.msg-author.bot-author { color: #1890ff; }
+
 .avatar-circle { width: 16px; height: 16px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;}
+.avatar-circle.bot-avatar { background: #1890ff; font-family: Arial, sans-serif; }
+
 .msg-bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-wrap: break-word; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);}
 .msg.incoming .msg-bubble { background: #fff; color: #333; border-top-left-radius: 2px;}
 .msg.outgoing .msg-bubble { background: #1890ff; color: #fff; border-top-right-radius: 2px;}
@@ -104,7 +99,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .toggle-mode:hover { text-decoration: underline; }
 .cancel { color: #ff4d4f; }
 
-/* 👇 修复：输入框固定底部，加上安全区避让 */
 .input-area { padding: 10px 15px; background: #fff; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
 .input-area textarea { flex: 1; height: 50px; padding: 12px; border: 1px solid #d9d9d9; border-radius: 8px; resize: none; font-size: 14px; font-family: inherit; outline: none; background: #fafafa;}
 .input-area textarea:focus { border-color: #1890ff; background: #fff;}
@@ -138,7 +132,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
   .sidebar { position: fixed; top: 0; left: 0; height: 100%; transform: translateX(-100%); width: 300px; box-shadow: 2px 0 10px rgba(0,0,0,0.1);}
   .sidebar.open { transform: translateX(0); }
   .sidebar-overlay.open { display: block; opacity: 1; }
-  .messages { padding: 15px 15px 40px 15px; }
+  .messages { padding: 15px 15px 60px 15px; }
   .msg { max-width: 90%; }
   .input-area { padding: 10px; gap: 8px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
   .input-area textarea { height: 45px; padding: 10px; font-size: 14px;}
@@ -211,7 +205,7 @@ window.onerror = function(msg, url, line, col, error) {
 <div class="mobile-header">
 <button class="menu-btn" onclick="toggleSidebar()">☰</button>
 <span id="mobile-title" style="font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">请选择会话</span>
-<div style="width: 30px;"></div>
+<button class="menu-btn" style="font-size: 16px;" onclick="openBotSettings()">⚙️</button>
 </div>
 
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -224,7 +218,10 @@ window.onerror = function(msg, url, line, col, error) {
 <div class="chat-area">
 <div class="chat-header">
 <span id="chat-title">请选择左侧会话</span>
+<span style="display:flex; align-items:center; gap:10px;">
 <span style="font-size: 12px; color: #888; font-weight: normal;">模式: <span id="mode-label">主动</span></span>
+<span style="cursor:pointer; font-size:18px;" onclick="openBotSettings()" title="设置 Bot ID">⚙️</span>
+</span>
 </div>
 
 <div class="messages" id="messages"></div>
@@ -258,11 +255,13 @@ window.onerror = function(msg, url, line, col, error) {
 <script>
 let token = localStorage.getItem('bot_token');
 let expiresAt = localStorage.getItem('bot_expires_at');
+let myBotId = localStorage.getItem('custom_bot_id') || ''; // 👈 自己填写的 Bot ID
 let currentSession = null;
 let replyToMsg = null;
 let quoteToMsg = null;
 let sessionsData = [];
 let currentMsgs = [];
+let idMap = {};
 let ws = null;
 
 let replyBaseTime = 0;
@@ -280,11 +279,20 @@ window.fetch = async function(...args) {
   return res;
 };
 
-// 👇 修复：加入对 Bot 名字截取的兼容
+window.scrollToBottom = function() {
+  const msgEl = document.getElementById('messages');
+  if (msgEl) msgEl.scrollTop = msgEl.scrollHeight;
+};
+
+// 👇 修改显示逻辑：映射 > 自定义 Bot ID 后四位 > 单纯 "Bot"
 function formatName(id, isGroup = false, isBot = false) {
+  if (idMap[id]) return idMap[id];
+  if (isBot) {
+    if (!myBotId) return 'Bot';
+    return 'Bot_' + (myBotId.length > 4 ? myBotId.slice(-4) : myBotId);
+  }
   if (!id || id === '未知用户') return '用户_未知';
   const suffix = id.length > 4 ? id.slice(-4) : id;
-  if (isBot) return 'Bot_' + suffix;
   if (isGroup) return '群聊_' + suffix;
   return '用户_' + suffix;
 }
@@ -304,29 +312,66 @@ function escapeHTML(str) {
   return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
 }
 
-async function copyIdDirect(id, event) {
-  if (event) event.stopPropagation();
+// 👇 设置 Bot ID 弹窗
+async function openBotSettings() {
+  const html = '<div style="margin-bottom:15px;font-size:13px;color:#888;">请填入机器人的真实 OpenID，用于在聊天区识别和显示。</div>' +
+  '<input type="text" id="bot-id-input" class="modal-input" value="' + escapeHTML(myBotId) + '" placeholder="填写 Bot 的 OpenID">';
+
+  const confirm = await showModal({
+    title: 'Bot 设置',
+    html: html,
+    buttons: [{ text: '取消', value: false, type: 'cancel' }, { text: '保存', value: true, type: 'confirm' }]
+  });
+
+  if (!confirm) return;
+  const newId = document.getElementById('bot-id-input').value.trim();
+  myBotId = newId;
+  localStorage.setItem('custom_bot_id', myBotId);
+  showToast('Bot 设置已保存', 'success');
+  if (currentSession) loadMessages(currentSession.id, false);
+}
+
+async function loadMappings() {
   try {
-    await navigator.clipboard.writeText(id);
-    showToast('已复制完整 ID', 'success');
-  } catch (err) {
-    showToast('复制失败，请手动选择', 'error');
+    const res = await fetch('/api/mappings', { headers: { 'Authorization': 'Bearer ' + token } });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      idMap = {};
+      data.forEach(item => { idMap[item.id] = item.nickname; });
+    }
+  } catch (e) {}
+}
+
+async function editMapping(id, event) {
+  if (event) event.stopPropagation();
+  if (!id || id === '未知用户') return;
+
+  const currentName = idMap[id] || (id === myBotId ? formatName(id, false, true) : formatName(id));
+  const html = '<div style="margin-bottom:15px;font-size:13px;color:#888;word-break:break-all;">ID: ' + escapeHTML(id) + '</div>' +
+  '<input type="text" id="mapping-input" class="modal-input" value="' + escapeHTML(currentName) + '" placeholder="输入备注昵称">';
+
+  const confirm = await showModal({
+    title: '设置备注',
+    html: html,
+    buttons: [{ text: '取消', value: false, type: 'cancel' }, { text: '保存', value: true, type: 'confirm' }]
+  });
+
+  if (!confirm) return;
+  const newName = document.getElementById('mapping-input').value.trim();
+  if (!newName || newName === currentName) return;
+
+  try {
+    await fetch('/api/mapping', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, nickname: newName })
+    });
+    idMap[id] = newName;
+    showToast('备注已更新', 'success');
+    loadSessions();
+    if (currentSession) loadMessages(currentSession.id, false);
+  } catch (e) {
+    showToast('设置失败', 'error');
   }
-}
-
-function copySessionId(index, event) {
-  if (event) event.stopPropagation();
-  const id = sessionsData[index].id;
-  copyIdDirect(id);
-}
-
-function copyAuthorId(index, event) {
-  if (event) event.stopPropagation();
-  const m = currentMsgs[index];
-  if (!m) return;
-  // 👇 如果复制的是 Bot，尝试拿 bot_openid
-  const id = m.type === 'outgoing' ? (currentSession?.bot_openid || 'Bot') : (m.author_name || '未知用户');
-  copyIdDirect(id);
 }
 
 function toggleSidebar() {
@@ -379,6 +424,7 @@ function handleImgError(img) {
   span.className = 'attachment-error';
   span.innerText = '[图片已过期]';
   img.replaceWith(span);
+  window.scrollToBottom();
 }
 
 async function checkSystemStatus() {
@@ -388,6 +434,7 @@ async function checkSystemStatus() {
     document.getElementById('loading-page').style.display = 'none';
 
     if (isTokenValid()) {
+      await loadMappings();
       showApp();
     } else {
       document.getElementById('login-page').style.display = 'flex';
@@ -410,6 +457,7 @@ async function login() {
     localStorage.setItem('bot_token', token);
     localStorage.setItem('bot_expires_at', expiresAt.toString());
     document.getElementById('login-page').style.display = 'none';
+    await loadMappings();
     showApp();
   } else showToast(data.error || '密码错误', 'error');
 }
@@ -451,8 +499,8 @@ async function loadSessions() {
   listEl.innerHTML = sessionsData.map((s, i) => {
     const displayName = formatName(s.id, s.is_group === 1);
     return '<div class="session-item ' + (currentSession?.id === s.id ? 'active' : '') + '" onclick="selectSession(' + i + ')">' +
-    '<div class="session-name">' + (s.is_group ? '👥 ' : '👤 ') + displayName + '</div>' +
-    '<div class="session-id" title="点击复制完整 ID" onclick="copySessionId(' + i + ', event)">' +
+    '<div class="session-name" title="点击设置备注" onclick="editMapping(\'' + escapeHTML(s.id) + '\', event)">' + (s.is_group ? '👥 ' : '👤 ') + displayName + '</div>' +
+    '<div class="session-id">' +
     '<span class="full-id">' + escapeHTML(s.id) + '</span>' +
     '</div>' +
     '<div class="session-preview">' + escapeHTML(s.last_message || '暂无消息') + '</div>' +
@@ -468,7 +516,7 @@ async function selectSession(index) {
     return;
   }
   currentSession = sessionsData[index];
-  const shortTitle = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' (' + id + ')';
+  const shortTitle = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' (' + formatName(id, currentSession.is_group === 1) + ')';
   document.getElementById('chat-title').innerText = shortTitle;
   document.getElementById('mobile-title').innerText = shortTitle;
 
@@ -525,18 +573,17 @@ async function loadMessages(sessionId, isPush) {
     const showReplyBtn = !isOut && isWithin5Mins;
     const showGroupOps = !isOut && isGroup;
 
-    // 👇 修复：Bot 的显示逻辑
-    let rawAuthorName = isOut ? (isGroup ? (currentSession.bot_openid || 'Bot') : 'Bot') : (m.author_name || '未知用户');
-    let displayName = isOut ? formatName(rawAuthorName, isGroup, true) : formatName(rawAuthorName, false);
+    let rawAuthorName = isOut ? (myBotId || 'Bot') : (m.author_name || '未知用户');
+    let displayName = isOut ? formatName(myBotId, isGroup, true) : formatName(rawAuthorName, false);
     let color = getColor(rawAuthorName);
 
     let authorHtml = '';
     if (isOut) {
-      authorHtml = '<div class="msg-author" title="点击复制" onclick="copyAuthorId(' + i + ', event)">' +
-      '<div class="avatar-circle" style="background: ' + color + ';">B</div> ' + displayName +
+      authorHtml = '<div class="msg-author bot-author" title="点击设置备注" onclick="editMapping(\'' + escapeHTML(myBotId || 'Bot') + '\', event)">' +
+      '<div class="avatar-circle bot-avatar">A</div> ' + displayName +
       '</div>';
     } else {
-      authorHtml = '<div class="msg-author" title="点击复制" onclick="copyAuthorId(' + i + ', event)">' +
+      authorHtml = '<div class="msg-author" title="点击设置备注" onclick="editMapping(\'' + escapeHTML(rawAuthorName) + '\', event)">' +
       '<div class="avatar-circle" style="background: ' + color + ';">' + (rawAuthorName.slice(-2, -1) || 'U') + '</div> ' + displayName +
       '</div>';
     }
@@ -550,7 +597,7 @@ async function loadMessages(sessionId, isPush) {
           if (att.error) {
             attHtml += '<div><span class="attachment-error">[' + escapeHTML(att.error) + ']</span></div>';
           } else if (att.content_type && att.content_type.startsWith('image/')) {
-            attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
+            attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onload="window.scrollToBottom()" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
           } else {
             attHtml += '<a href="' + escapeHTML(att.url) + '" target="_blank" class="attachment-link">📄 [文件] 点击下载</a>';
           }
@@ -577,12 +624,13 @@ async function loadMessages(sessionId, isPush) {
     '</div>';
   }).join('');
 
-  // 👇 修复：多次强制滚动
-  const scrollToBottom = () => { msgEl.scrollTop = msgEl.scrollHeight; };
-  scrollToBottom();
-  setTimeout(scrollToBottom, 50);
-  setTimeout(scrollToBottom, 200);
-  setTimeout(scrollToBottom, 500);
+  window.scrollToBottom();
+  requestAnimationFrame(() => {
+    window.scrollToBottom();
+    setTimeout(window.scrollToBottom, 100);
+    setTimeout(window.scrollToBottom, 300);
+    setTimeout(window.scrollToBottom, 500);
+  });
 }
 
 async function openMutePanel(index) {
