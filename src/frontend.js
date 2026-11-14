@@ -172,7 +172,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 }
 </style>
 <script>
-// 👇 全局捕获 JS 错误，直接显示在页面上，防止白屏或卡死
+// 全局捕获 JS 错误，直接显示在页面上，防止白屏或卡死
 window.onerror = function(msg, url, line, col, error) {
   const errLayer = document.getElementById('js-error-layer');
   if (errLayer) {
@@ -184,7 +184,6 @@ window.onerror = function(msg, url, line, col, error) {
 </script>
 </head>
 <body>
-<!-- 错误提示层 -->
 <div id="js-error-layer">
 <h2>⚠️ 页面脚本运行出错</h2>
 <p>请将以下错误信息发给开发者修复：</p>
@@ -256,7 +255,7 @@ let currentSession = null;
 let replyToMsg = null;
 let quoteToMsg = null;
 let sessionsData = [];
-let currentMsgs = []; // 缓存当前渲染的消息
+let currentMsgs = [];
 let ws = null;
 
 let replyBaseTime = 0;
@@ -292,7 +291,12 @@ function getColor(id) {
   return 'hsl(' + h + ', 65%, 55%)';
 }
 
-async function copyId(id, event) {
+function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+}
+
+async function copyIdDirect(id, event) {
   if (event) event.stopPropagation();
   try {
     await navigator.clipboard.writeText(id);
@@ -300,6 +304,20 @@ async function copyId(id, event) {
   } catch (err) {
     showToast('复制失败，请手动选择', 'error');
   }
+}
+
+function copySessionId(index, event) {
+  if (event) event.stopPropagation();
+  const id = sessionsData[index].id;
+  copyIdDirect(id);
+}
+
+function copyAuthorId(index, event) {
+  if (event) event.stopPropagation();
+  const m = currentMsgs[index];
+  if (!m) return;
+  const id = m.type === 'outgoing' ? 'Bot' : (m.author_name || '未知用户');
+  copyIdDirect(id);
 }
 
 // ================= UI 基础 =================
@@ -346,11 +364,6 @@ function isTokenValid() {
   if (!token || !expiresAt) return false;
   if (Date.now() > parseInt(expiresAt)) return false;
   return true;
-}
-
-function escapeHTML(str) {
-  if (str === null || str === undefined) return '';
-  return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
 }
 
 function handleImgError(img) {
@@ -432,7 +445,7 @@ async function loadSessions() {
     const displayName = formatName(s.id, s.is_group === 1);
     return '<div class="session-item ' + (currentSession?.id === s.id ? 'active' : '') + '" onclick="selectSession(' + i + ')">' +
     '<div class="session-name">' + (s.is_group ? '👥 ' : '👤 ') + displayName + '</div>' +
-    '<div class="session-id" title="点击复制完整 ID" onclick="copyId(\'' + escapeHTML(s.id) + '\', event)">' +
+    '<div class="session-id" title="点击复制完整 ID" onclick="copySessionId(' + i + ', event)">' +
     '<span class="full-id">' + escapeHTML(s.id) + '</span>' +
     '</div>' +
     '<div class="session-preview">' + escapeHTML(s.last_message || '暂无消息') + '</div>' +
@@ -512,11 +525,11 @@ async function loadMessages(sessionId, isPush) {
 
     let authorHtml = '';
     if (isOut) {
-      authorHtml = '<div class="msg-author" title="点击复制" onclick="copyId(\'' + escapeHTML(rawAuthorName) + '\', event)">' +
+      authorHtml = '<div class="msg-author" title="点击复制" onclick="copyAuthorId(' + i + ', event)">' +
       '<div class="avatar-circle" style="background: ' + color + ';">B</div> Bot ' + (isGroup && rawAuthorName !== 'Bot' ? formatName(rawAuthorName, false) : '') +
       '</div>';
     } else {
-      authorHtml = '<div class="msg-author" title="点击复制" onclick="copyId(\'' + escapeHTML(rawAuthorName) + '\', event)">' +
+      authorHtml = '<div class="msg-author" title="点击复制" onclick="copyAuthorId(' + i + ', event)">' +
       '<div class="avatar-circle" style="background: ' + color + ';">' + (rawAuthorName.slice(-2, -1) || 'U') + '</div> ' + displayName +
       '</div>';
     }
@@ -527,8 +540,9 @@ async function loadMessages(sessionId, isPush) {
     if (m.attachments) {
       try {
         JSON.parse(m.attachments).forEach(att => {
+          // 👇 修复图片点击：利用 this.src 避免字符串截断
           if (att.error) attHtml += '<div><span class="attachment-error">[' + escapeHTML(att.error) + ']</span></div>';
-          else if (att.content_type && att.content_type.startsWith('image/')) attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onerror="handleImgError(this)" onclick="window.open(\'' + escapeHTML(att.url) + '\')" />';
+          else if (att.content_type && att.content_type.startsWith('image/')) attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
           else attHtml += '<a href="' + escapeHTML(att.url) + '" target="_blank" class="attachment-link">🎤 [语音/文件]</a>';
         });
       } catch (e) {}
