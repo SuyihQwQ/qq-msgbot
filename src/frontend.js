@@ -5,7 +5,8 @@ export const FRONTEND_HTML = `
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>QQ MsgBot 控制台</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231890ff'/><path d='M25 35 Q25 20 50 20 Q75 20 75 35 L75 60 Q75 75 50 75 L38 75 L20 88 L25 72 Q25 60 25 60 Z' fill='white'/><circle cx='40' cy='42' r='6' fill='%231890ff'/><circle cx='60' cy='42' r='6' fill='%231890ff'/><rect x='40' y='55' width='20' height='4' rx='2' fill='%231890ff'/></svg>">
+<!-- 👇 图标已替换为 : ) 👇 -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231890ff'/><text x='50' y='70' font-family='Arial, sans-serif' font-size='60' font-weight='bold' fill='white' text-anchor='middle'>:)</text></svg>">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; height: 100vh; display: flex; color: #333; overflow: hidden; }
@@ -601,7 +602,6 @@ async function recallMessage(msgId) {
   else showToast(data.error, 'error');
 }
 
-// 👇 修改：踢人时在同个弹窗内选择是否拉黑
 async function kickMember(memberOpenid) {
   const html = \`
   <div style="margin-bottom:15px;font-size:14px;">确定要将 <b>\${memberOpenid}</b> 踢出群吗？</div>
@@ -618,8 +618,6 @@ async function kickMember(memberOpenid) {
   });
 
   if (!confirm) return;
-
-  // 获取勾选框状态
   const addToBlacklist = document.getElementById('kick-blacklist').checked;
 
   const res = await fetch('/api/kick', {
