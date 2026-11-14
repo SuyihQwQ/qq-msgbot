@@ -56,7 +56,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative; min-width: 0;}
 .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; scroll-behavior: smooth;}
 
-/* 👇 修复对齐：统一左右 Header 高度与样式 👇 */
+/* 统一 Header 高度 */
 .sidebar-header, .chat-header {
   height: 60px;
   padding: 0 20px;
@@ -142,7 +142,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 @media (max-width: 768px) {
   #app { flex-direction: column; }
   .mobile-header { display: flex; }
-  .chat-header { display: none; } /* 手机端隐藏桌面的聊天头，用顶栏代替 */
+  .chat-header { display: none; }
   .sidebar { position: fixed; top: 0; left: 0; height: 100%; transform: translateX(-100%); width: 280px; box-shadow: 2px 0 10px rgba(0,0,0,0.1);}
   .sidebar.open { transform: translateX(0); }
   .sidebar-overlay.open { display: block; opacity: 1; }
@@ -153,7 +153,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
   .modal-box { padding: 20px; }
 }
 
-/* 👇 自动适配暗黑模式 👇 */
+/* 自动适配暗黑模式 */
 @media (prefers-color-scheme: dark) {
   body { background: #121212; color: #e0e0e0; }
   #loading-page, #login-page { background: #121212; }
@@ -223,7 +223,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 <div class="chat-area">
 <!-- 桌面端头部 -->
 <div class="chat-header">
-<!-- 👇 修复：去掉 display: none，默认显示 -->
 <span id="chat-title">请选择左侧会话</span>
 <span style="font-size: 12px; color: #888; font-weight: normal;">模式: <span id="mode-label">主动</span></span>
 </div>
@@ -602,10 +601,33 @@ async function recallMessage(msgId) {
   else showToast(data.error, 'error');
 }
 
+// 👇 修改：踢人时在同个弹窗内选择是否拉黑
 async function kickMember(memberOpenid) {
-  const confirm = await showModal({ title: '踢人', html: \`确定要将 \${memberOpenid} 踢出群吗？\`, buttons: [{ text: '取消', value: false, type: 'cancel' }, { text: '踢出', value: true, type: 'danger' }] });
+  const html = \`
+  <div style="margin-bottom:15px;font-size:14px;">确定要将 <b>\${memberOpenid}</b> 踢出群吗？</div>
+  <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;color:#ff4d4f;">
+  <input type="checkbox" id="kick-blacklist" style="width:16px;height:16px;accent-color:#ff4d4f;">
+  同时加入群黑名单
+  </label>
+  \`;
+
+  const confirm = await showModal({
+    title: '踢出群聊',
+    html: html,
+    buttons: [{ text: '取消', value: false, type: 'cancel' }, { text: '确认踢出', value: true, type: 'danger' }]
+  });
+
   if (!confirm) return;
-  const res = await fetch('/api/kick', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid, addToBlacklist: false }) });
+
+  // 获取勾选框状态
+  const addToBlacklist = document.getElementById('kick-blacklist').checked;
+
+  const res = await fetch('/api/kick', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid, addToBlacklist: addToBlacklist })
+  });
+
   const data = await res.json();
   if (res.ok) showToast('踢出成功', 'success');
   else showToast(data.error, 'error');

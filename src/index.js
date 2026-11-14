@@ -147,7 +147,6 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   return data;
 }
 
-// 👇 撤回接口（支持撤回群成员消息）
 async function recallQQMessage(env, targetId, isGroup, messageId) {
   const token = await getAccessToken(env);
   const url = isGroup ? `${QQ_SEND_BASE}/groups/${targetId}/messages/${messageId}` : `${QQ_SEND_BASE}/users/${targetId}/messages/${messageId}`;
@@ -156,16 +155,10 @@ async function recallQQMessage(env, targetId, isGroup, messageId) {
     let errMsg = '';
     try {
       const error = await res.json();
-      if (error.code === 11253) {
-        errMsg = '无操作权限：请确保机器人是群管理员，且该接口已在平台申请白名单。';
-      } else if (error.code === 40064004) {
-        errMsg = '消息发送超过 2 分钟，无法撤回。';
-      } else {
-        errMsg = `撤回失败: ${error.code} ${error.message || ''}`;
-      }
-    } catch (e) {
-      errMsg = '撤回失败: 未知错误';
-    }
+      if (error.code === 11253) errMsg = '无操作权限：请确保机器人是群管理员，且该接口已在平台申请白名单。';
+      else if (error.code === 40064004) errMsg = '消息发送超过 2 分钟，无法撤回。';
+      else errMsg = `撤回失败: ${error.code} ${error.message || ''}`;
+    } catch (e) { errMsg = '撤回失败: 未知错误'; }
     throw new Error(errMsg);
   }
   return true;
@@ -180,9 +173,7 @@ async function kickGroupMember(env, groupOpenid, memberOpenid, addToBlacklist = 
   const data = await res.json();
   if (data.code) {
     let errMsg = `踢人失败: ${data.code} ${data.message || ''}`;
-    if (data.code === 11253) {
-      errMsg = '踢人失败: 该接口需要向平台申请白名单（11253 应用无接口访问权限）';
-    }
+    if (data.code === 11253) errMsg = '踢人失败: 该接口需要向平台申请白名单（11253）';
     throw new Error(errMsg);
   }
   return data;
@@ -198,12 +189,41 @@ async function muteGroupMember(env, groupOpenid, memberOpenid, durationMins) {
   const data = await res.json();
   if (data.code) {
     let errMsg = `禁言失败: ${data.code} ${data.message || ''}`;
-    if (data.code === 11253) {
-      errMsg = '禁言失败: 该接口需要向平台申请白名单（11253 应用无接口访问权限）';
-    }
+    if (data.code === 11253) errMsg = '禁言失败: 该接口需要向平台申请白名单（11253）';
     throw new Error(errMsg);
   }
   return data;
+}
+
+async function unmuteGroupMember(env, groupOpenid, memberOpenid) {
+  const token = await getAccessToken(env);
+  const res = await fetch(`${QQ_SEND_BASE}/groups/${groupOpenid}/restrict_chat_setting`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `QQBot ${token}` },
+    body: JSON.stringify({ members: [{ op: "del", member_openid: memberOpenid, mute_expire_at: "" }] }),
+  });
+  const data = await res.json();
+  if (data.code) {
+    let errMsg = `解除禁言失败: ${data.code} ${data.message || ''}`;
+    if (data.code === 11253) errMsg = '解除禁言失败: 该接口需要向平台申请白名单（11253）';
+    throw new Error(errMsg);
+  }
+  return data;
+}
+
+async function getMuteStatus(env, groupOpenid, memberOpenid) {
+  const token = await getAccessToken(env);
+  const res = await fetch(`${QQ_SEND_BASE}/groups/${groupOpenid}/restrict_chat_setting`, {
+    method: 'GET', headers: { Authorization: `QQBot ${token}` },
+  });
+  const data = await res.json();
+  if (data.code) throw new Error(`查询失败: ${data.code} ${data.message || ''}`);
+
+  const mutedMember = data.members?.find(m => m.member_openid === memberOpenid);
+  return {
+    isMuted: !!mutedMember,
+    expireAt: mutedMember ? mutedMember.mute_expire_at : null,
+    globalRule: data.global_rule
+  };
 }
 
 async function handleValidation(plainToken, eventTs, env) {
@@ -403,10 +423,28 @@ async function handleApi(request, env, path) {
       return Response.json({ ok: true });
     }
 
+    // 👇 修复：统一查询禁言接口路径和参数
+    if (path === '/api/mute_status' && request.method === 'GET') {
+      const urlObj = new URL(request.url);
+      const groupOpenid = urlObj.searchParams.get('group_id');
+      const memberOpenid = urlObj.searchParams.get('member_id');
+      if (!groupOpenid || !memberOpenid) return Response.json({ error: '参数缺失' }, { status: 400 });
+
+      const status = await getMuteStatus(env, groupOpenid, memberOpenid);
+      return Response.json(status);
+    }
+
     if (path === '/api/mute' && request.method === 'POST') {
       const { groupOpenid, memberOpenid, durationMins } = await request.json();
       if (!groupOpenid || !memberOpenid || !durationMins) return Response.json({ error: '参数缺失' }, { status: 400 });
       await muteGroupMember(env, groupOpenid, memberOpenid, durationMins);
+      return Response.json({ ok: true });
+    }
+
+    if (path === '/api/unmute' && request.method === 'POST') {
+      const { groupOpenid, memberOpenid } = await request.json();
+      if (!groupOpenid || !memberOpenid) return Response.json({ error: '参数缺失' }, { status: 400 });
+      await unmuteGroupMember(env, groupOpenid, memberOpenid);
       return Response.json({ ok: true });
     }
 
