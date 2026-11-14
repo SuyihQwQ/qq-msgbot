@@ -282,7 +282,6 @@ let quoteToMsg = null;
 let sessionsData = [];
 let ws = null;
 
-// 倒计时相关
 let replyTimeoutTimer = null;
 let replyExpireTime = 0;
 
@@ -466,7 +465,9 @@ async function selectSession(id) {
     return;
   }
   currentSession = sessionsData.find(s => s.id === id);
-  const shortTitle = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' (' + formatName(id, currentSession.is_group === 1) + ')';
+
+  // 👇 修复：括号内显示完整的 OpenID
+  const shortTitle = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' (' + id + ')';
   document.getElementById('chat-title').innerText = shortTitle;
   document.getElementById('mobile-title').innerText = shortTitle;
 
@@ -657,13 +658,11 @@ function insertAtTag(authorId) {
   inputEl.focus();
 }
 
-// 👇 核心倒计时 UI 更新逻辑
 function updateModeUI() {
   const label = document.getElementById('mode-label');
   const btn = document.getElementById('toggle-mode-btn');
   const tipText = document.getElementById('tip-text');
 
-  // 清除之前的定时器
   if (replyTimeoutTimer) clearInterval(replyTimeoutTimer);
 
   if (replyToMsg) {
@@ -671,7 +670,6 @@ function updateModeUI() {
     label.style.color = '#52c41a';
     btn.innerText = '转为主动';
 
-    // 启动倒计时
     replyExpireTime = Date.now() + 5 * 60 * 1000;
     replyTimeoutTimer = setInterval(() => {
       const remaining = replyExpireTime - Date.now();
@@ -683,7 +681,6 @@ function updateModeUI() {
         const mins = Math.floor(remaining / 60000);
         const secs = Math.floor((remaining % 60000) / 1000);
         const timeStr = \`\${mins}分\${secs.toString().padStart(2, '0')}秒\`;
-        // 保留原来的引用文字，追加倒计时
         const originalText = quoteToMsg ? \`正在引用: \${(quoteToMsg.content || '[非文本]').substring(0, 10)}...\` : '正在被动回复...';
         tipText.innerText = \`\${originalText} (剩余 \${timeStr})\`;
       }
@@ -773,7 +770,6 @@ async function sendMessage() {
   const content = document.getElementById('msg-input').value.trim();
   if (!content) return;
 
-  // 二次检查：如果被动回复过期（以防计时器被挂起），强制拦截
   if (replyToMsg && Date.now() > replyExpireTime) {
     cancelReply();
     return showToast('被动回复已超时，请重新点击回复按钮', 'error');
