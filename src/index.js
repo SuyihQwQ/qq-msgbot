@@ -337,7 +337,8 @@ async function processSystemEvent(payload, env, ctx) {
 }
 
 // ================= API 路由 =================
-async function handleApi(request, env, path) {
+// 👇 修复：接收 ctx 参数
+async function handleApi(request, env, path, ctx) {
   try {
     if (path === '/api/health' && request.method === 'GET') {
       const missingEnvs = [];
@@ -423,7 +424,6 @@ async function handleApi(request, env, path) {
       return Response.json({ ok: true });
     }
 
-    // 👇 修复：统一查询禁言接口路径和参数
     if (path === '/api/mute_status' && request.method === 'GET') {
       const urlObj = new URL(request.url);
       const groupOpenid = urlObj.searchParams.get('group_id');
@@ -494,7 +494,8 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/') return new Response(FRONTEND_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     if (url.pathname === '/qq-webhook') return handleQQWebhook(request, env, ctx);
-    if (url.pathname.startsWith('/api/')) return handleApi(request, env, url.pathname);
+    // 👇 修复：将 ctx 传递给 handleApi
+    if (url.pathname.startsWith('/api/')) return handleApi(request, env, url.pathname, ctx);
     if (url.pathname === '/ws') return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('global')).fetch(request);
     return new Response('Not Found', { status: 404 });
   },
