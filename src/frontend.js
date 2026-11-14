@@ -8,8 +8,9 @@ export const FRONTEND_HTML = `
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231890ff'/><text x='50' y='70' font-family='Arial, sans-serif' font-size='60' font-weight='bold' fill='white' text-anchor='middle'>:)</text></svg>">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-/* 👇 修复：限制视口高度，防止手机键盘弹起导致整体页面被挤长 */
-html, body { height: 100%; height: 100dvh; overflow: hidden; }
+
+/* 👇 修复：强制全屏与防抖 */
+html, body { height: 100%; height: 100dvh; overflow: hidden; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e9ecef; display: flex; color: #333; }
 
 /* 全局错误提示层 */
@@ -37,7 +38,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .login-box button { width: 100%; padding: 12px; background: #1890ff; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; transition: background 0.2s;}
 
 /* 主界面 */
-#app { display: none; width: 100%; height: 100%; height: 100dvh; background: white; position: relative; overflow: hidden; }
+/* 👇 修复：使用绝对定位铺满全屏，避免 flex 高度计算被系统键盘挤爆 */
+#app { display: none; width: 100%; height: 100%; height: 100dvh; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: white; overflow: hidden; }
 
 .mobile-header { display: none; height: 60px; background: #fff; border-bottom: 1px solid #e8e8e8; align-items: center; padding: 0 15px; justify-content: space-between; flex-shrink: 0; z-index: 10;}
 .menu-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px; color: #333;}
@@ -57,8 +59,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; opacity: 0; transition: opacity 0.3s;}
 
 /* 聊天区 */
-.chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative; min-width: 0; height: 100%; min-height: 0; /* 👈 修复：防止 flex 子项撑破父级 */ }
-.messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px; display: flex; flex-direction: column; scroll-behavior: smooth;}
+.chat-area { flex: 1; display: flex; flex-direction: column; background: #f0f2f5; position: relative; min-width: 0; height: 100%; min-height: 0; /* 防止 flex 子项撑破 */ }
+
+/* 👇 修复：给消息列表底部增加 40px 内边距，防止最后一条消息被输入框遮挡 */
+.messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 20px 40px 20px; display: flex; flex-direction: column; scroll-behavior: smooth; }
 
 .sidebar-header, .chat-header { height: 60px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 16px; background: #fff; color: #1a1a1a; border-bottom: 1px solid #e8e8e8; flex-shrink: 0; z-index: 10;}
 .sidebar-header { justify-content: flex-start; gap: 8px; }
@@ -100,7 +104,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .toggle-mode:hover { text-decoration: underline; }
 .cancel { color: #ff4d4f; }
 
-/* 👇 修复：输入框区域固定底部，不被挤压 */
+/* 👇 修复：输入框固定底部，加上安全区避让 */
 .input-area { padding: 10px 15px; background: #fff; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
 .input-area textarea { flex: 1; height: 50px; padding: 12px; border: 1px solid #d9d9d9; border-radius: 8px; resize: none; font-size: 14px; font-family: inherit; outline: none; background: #fafafa;}
 .input-area textarea:focus { border-color: #1890ff; background: #fff;}
@@ -127,7 +131,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .mute-chip { padding: 6px 12px; background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; border-radius: 16px; font-size: 13px; cursor: pointer;}
 .mute-chip.active { background: #1890ff; color: #fff; }
 
-/* 👇 修复：移动端布局 */
 @media (max-width: 768px) {
   #app { flex-direction: column; }
   .mobile-header { display: flex; }
@@ -135,9 +138,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
   .sidebar { position: fixed; top: 0; left: 0; height: 100%; transform: translateX(-100%); width: 300px; box-shadow: 2px 0 10px rgba(0,0,0,0.1);}
   .sidebar.open { transform: translateX(0); }
   .sidebar-overlay.open { display: block; opacity: 1; }
-  .messages { padding: 15px; }
+  .messages { padding: 15px 15px 40px 15px; }
   .msg { max-width: 90%; }
-  .input-area { padding: 10px; gap: 8px; }
+  .input-area { padding: 10px; gap: 8px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
   .input-area textarea { height: 45px; padding: 10px; font-size: 14px;}
   .modal-box { padding: 20px; }
 }
@@ -277,10 +280,11 @@ window.fetch = async function(...args) {
   return res;
 };
 
+// 👇 修复：加入对 Bot 名字截取的兼容
 function formatName(id, isGroup = false, isBot = false) {
   if (!id || id === '未知用户') return '用户_未知';
-  if (isBot) return 'Bot';
   const suffix = id.length > 4 ? id.slice(-4) : id;
+  if (isBot) return 'Bot_' + suffix;
   if (isGroup) return '群聊_' + suffix;
   return '用户_' + suffix;
 }
@@ -320,7 +324,8 @@ function copyAuthorId(index, event) {
   if (event) event.stopPropagation();
   const m = currentMsgs[index];
   if (!m) return;
-  const id = m.type === 'outgoing' ? 'Bot' : (m.author_name || '未知用户');
+  // 👇 如果复制的是 Bot，尝试拿 bot_openid
+  const id = m.type === 'outgoing' ? (currentSession?.bot_openid || 'Bot') : (m.author_name || '未知用户');
   copyIdDirect(id);
 }
 
@@ -520,14 +525,15 @@ async function loadMessages(sessionId, isPush) {
     const showReplyBtn = !isOut && isWithin5Mins;
     const showGroupOps = !isOut && isGroup;
 
-    let rawAuthorName = isOut ? 'Bot' : (m.author_name || '未知用户');
-    let displayName = isOut ? 'Bot' : formatName(rawAuthorName, false);
+    // 👇 修复：Bot 的显示逻辑
+    let rawAuthorName = isOut ? (isGroup ? (currentSession.bot_openid || 'Bot') : 'Bot') : (m.author_name || '未知用户');
+    let displayName = isOut ? formatName(rawAuthorName, isGroup, true) : formatName(rawAuthorName, false);
     let color = getColor(rawAuthorName);
 
     let authorHtml = '';
     if (isOut) {
       authorHtml = '<div class="msg-author" title="点击复制" onclick="copyAuthorId(' + i + ', event)">' +
-      '<div class="avatar-circle" style="background: ' + color + ';">B</div> Bot ' + (isGroup && rawAuthorName !== 'Bot' ? formatName(rawAuthorName, false) : '') +
+      '<div class="avatar-circle" style="background: ' + color + ';">B</div> ' + displayName +
       '</div>';
     } else {
       authorHtml = '<div class="msg-author" title="点击复制" onclick="copyAuthorId(' + i + ', event)">' +
@@ -571,10 +577,12 @@ async function loadMessages(sessionId, isPush) {
     '</div>';
   }).join('');
 
+  // 👇 修复：多次强制滚动
   const scrollToBottom = () => { msgEl.scrollTop = msgEl.scrollHeight; };
   scrollToBottom();
   setTimeout(scrollToBottom, 50);
   setTimeout(scrollToBottom, 200);
+  setTimeout(scrollToBottom, 500);
 }
 
 async function openMutePanel(index) {
