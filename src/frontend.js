@@ -259,6 +259,13 @@ let quoteToMsg = null;
 let sessionsData = [];
 let ws = null;
 
+// 👇 新增：用于缩短显示过长的 ID
+function shortenId(id) {
+  if (!id) return '';
+  if (id.length <= 12) return id;
+  return id.substring(0, 6) + '...' + id.substring(id.length - 4);
+}
+
 // ================= UI 基础 =================
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -383,7 +390,8 @@ async function loadSessions() {
   listEl.innerHTML = sessionsData.map(s => \`
   <div class="session-item \${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('\${escapeHTML(s.id)}')">
   <div class="session-name">\${s.is_group ? '👥 群聊' : '👤 私聊'}</div>
-  <div class="session-id">\${escapeHTML(s.id)}</div>
+  <!-- 👇 这里使用了 shortenId 缩短显示 -->
+  <div class="session-id" title="\${escapeHTML(s.id)}">\${escapeHTML(shortenId(s.id))}</div>
   <div class="session-preview">\${escapeHTML(s.last_message || '暂无消息')}</div>
   <span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession('\${escapeHTML(s.id)}')">🗑️</span>
   </div>
@@ -396,9 +404,10 @@ async function selectSession(id) {
     return;
   }
   currentSession = sessionsData.find(s => s.id === id);
-  const titleText = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' - ' + id;
-  document.getElementById('chat-title').innerText = titleText;
-  document.getElementById('mobile-title').innerText = titleText;
+  // 👇 标题栏使用 shortenId 缩短显示
+  const shortTitle = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' - ' + shortenId(id);
+  document.getElementById('chat-title').innerText = shortTitle;
+  document.getElementById('mobile-title').innerText = shortTitle;
 
   cancelReply();
   document.getElementById('messages').dataset.count = -1;
@@ -445,7 +454,10 @@ async function loadMessages(sessionId, isPush) {
     const showReplyBtn = !isOut && isWithin5Mins;
     const showGroupOps = !isOut && isGroup;
 
-    let authorName = isOut ? (isGroup ? (currentSession.bot_openid || 'Bot') : 'Bot') : (m.author_name || '用户');
+    // 👇 发送者名字也缩短显示，并保留完整 title 提示
+    let rawAuthorName = isOut ? (isGroup ? (currentSession.bot_openid || 'Bot') : 'Bot') : (m.author_name || '用户');
+    let authorName = rawAuthorName === 'Bot' ? 'Bot' : shortenId(rawAuthorName);
+
     let quoteHtml = m.quote_content ? \`<div class="quote-box">\${escapeHTML(m.quote_content)}</div>\` : '';
 
     let attHtml = '';
@@ -459,10 +471,10 @@ async function loadMessages(sessionId, isPush) {
       } catch (e) {}
     }
 
-    // 👇 修改：禁言按钮去掉了文字，加上了 title 属性
+    // 禁言按钮去掉了文字，加上了 title 属性
     return \`
     <div class="msg \${isOut ? 'outgoing' : 'incoming'}">
-    <div class="msg-author">\${escapeHTML(authorName)}</div>
+    <div class="msg-author" title="\${escapeHTML(rawAuthorName)}">\${escapeHTML(authorName)}</div>
     <div class="msg-bubble">
     \${quoteHtml}
     \${m.content ? escapeHTML(m.content) : ''}
@@ -473,9 +485,9 @@ async function loadMessages(sessionId, isPush) {
     \${showRecallBtn ? \`<span class="action-btn" title="撤回" onclick="recallMessage('\${escapeHTML(m.msg_id)}')">🗑️</span>\` : ''}
     \${showReplyBtn ? \`<span class="action-btn" title="回复" onclick="startReply('\${escapeHTML(m.msg_id)}')">↩️</span>\` : ''}
     <span class="action-btn" title="引用" onclick="startQuote('\${escapeHTML(m.msg_id)}', '\${escapeHTML(m.content)}')">💬</span>
-    \${showGroupOps ? \`<span class="action-btn" title="提及" onclick="insertAtTag('\${escapeHTML(m.author_name)}')">@</span>\` : ''}
-    \${showGroupOps ? \`<span class="action-btn" title="禁言管理" onclick="openMutePanel('\${escapeHTML(m.author_name)}')">🔇</span>\` : ''}
-    \${showGroupOps ? \`<span class="action-btn" title="踢出" onclick="kickMember('\${escapeHTML(m.author_name)}')">👢</span>\` : ''}
+    \${showGroupOps ? \`<span class="action-btn" title="提及" onclick="insertAtTag('\${escapeHTML(rawAuthorName)}')">@</span>\` : ''}
+    \${showGroupOps ? \`<span class="action-btn" title="禁言管理" onclick="openMutePanel('\${escapeHTML(rawAuthorName)}')">🔇</span>\` : ''}
+    \${showGroupOps ? \`<span class="action-btn" title="踢出" onclick="kickMember('\${escapeHTML(rawAuthorName)}')">👢</span>\` : ''}
     </div>
     </div>
     \`;
@@ -493,7 +505,7 @@ async function openMutePanel(memberOpenid) {
   </div>
   <div class="modal-btns"><button class="modal-btn cancel" onclick="closeModal()">关闭</button></div>
   \`;
-  showModal({ title: \`管理成员: \${memberOpenid}\`, html: loadingHtml, buttons: [] });
+  showModal({ title: \`管理成员: \${shortenId(memberOpenid)}\`, html: loadingHtml, buttons: [] });
 
   try {
     const res = await fetch(\`/api/mute_status?group_id=\${currentSession.id}&member_id=\${memberOpenid}\`, {
@@ -529,7 +541,7 @@ async function openMutePanel(memberOpenid) {
       btns.unshift({ text: '确认禁言', value: 'mute', type: 'danger' });
     }
 
-    const action = await showModal({ title: \`成员: \${memberOpenid}\`, html: statusHtml, buttons: btns });
+    const action = await showModal({ title: \`成员: \${shortenId(memberOpenid)}\`, html: statusHtml, buttons: btns });
 
     if (action === 'unmute') {
       const req = await fetch('/api/unmute', {
@@ -604,7 +616,7 @@ async function recallMessage(msgId) {
 
 async function kickMember(memberOpenid) {
   const html = \`
-  <div style="margin-bottom:15px;font-size:14px;">确定要将 <b>\${memberOpenid}</b> 踢出群吗？</div>
+  <div style="margin-bottom:15px;font-size:14px;">确定要将 <b>\${shortenId(memberOpenid)}</b> 踢出群吗？</div>
   <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;color:#ff4d4f;">
   <input type="checkbox" id="kick-blacklist" style="width:16px;height:16px;accent-color:#ff4d4f;">
   同时加入群黑名单

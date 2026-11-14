@@ -269,6 +269,7 @@ async function processIncomingMessage(payload, env, ctx) {
     }
 
     const attachmentsData = await processAttachments(env, d.attachments);
+
     let previewContent = safeContent;
     if (!previewContent && d.attachments) {
       const type = d.attachments[0].content_type || '';
@@ -278,11 +279,16 @@ async function processIncomingMessage(payload, env, ctx) {
       else previewContent = '[文件]';
     }
     if (!previewContent) previewContent = '[暂不支持的消息]';
+
+    // 👇 新增：为了不撑破列表，取用户 ID 后 6 位作为前缀
+    const shortAuthor = authorName.length > 6 ? authorName.slice(-6) : authorName;
+    const finalPreview = `[${shortAuthor}] ${previewContent}`;
+
     const now = Date.now();
 
     await env.DB.prepare(
       `INSERT INTO sessions (id, is_group, name, last_active, last_message) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_active = excluded.last_active, last_message = excluded.last_message`
-    ).bind(sessionId, isGroup ? 1 : 0, isGroup ? `群聊 (${sessionId})` : `用户 (${authorName})`, now, previewContent).run();
+    ).bind(sessionId, isGroup ? 1 : 0, isGroup ? `群聊 (${sessionId})` : `用户 (${authorName})`, now, finalPreview).run();
 
     const existing = await env.DB.prepare(`SELECT id FROM messages WHERE msg_id = ?`).bind(d.id).first();
     if (!existing) {
@@ -337,7 +343,6 @@ async function processSystemEvent(payload, env, ctx) {
 }
 
 // ================= API 路由 =================
-// 👇 修复：接收 ctx 参数
 async function handleApi(request, env, path, ctx) {
   try {
     if (path === '/api/health' && request.method === 'GET') {
@@ -403,7 +408,9 @@ async function handleApi(request, env, path, ctx) {
         quoteMsgId || null, quoteContent || null
       ).run();
 
-      await env.DB.prepare(`UPDATE sessions SET last_active = ? WHERE id = ?`).bind(now, sessionId).run();
+      // 👇 修复：机器人发消息后，同步更新左侧列表的预览内容
+      await env.DB.prepare(`UPDATE sessions SET last_active = ?, last_message = ? WHERE id = ?`).bind(now, `[我] ${content}`, sessionId).run();
+
       ctx.waitUntil(env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('global')).broadcast({ type: 'update', sessionId }));
       return Response.json({ ok: true, msgId: res.id || null });
     }
@@ -494,7 +501,6 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/') return new Response(FRONTEND_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     if (url.pathname === '/qq-webhook') return handleQQWebhook(request, env, ctx);
-    // 👇 修复：将 ctx 传递给 handleApi
     if (url.pathname.startsWith('/api/')) return handleApi(request, env, url.pathname, ctx);
     if (url.pathname === '/ws') return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('global')).fetch(request);
     return new Response('Not Found', { status: 404 });
