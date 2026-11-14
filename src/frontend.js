@@ -5,7 +5,6 @@ export const FRONTEND_HTML = `
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>QQ MsgBot 控制台</title>
-<!-- 👇 图标已替换为 : ) 👇 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231890ff'/><text x='50' y='70' font-family='Arial, sans-serif' font-size='60' font-weight='bold' fill='white' text-anchor='middle'>:)</text></svg>">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -460,6 +459,7 @@ async function loadMessages(sessionId, isPush) {
       } catch (e) {}
     }
 
+    // 👇 修改：禁言按钮去掉了文字，加上了 title 属性
     return \`
     <div class="msg \${isOut ? 'outgoing' : 'incoming'}">
     <div class="msg-author">\${escapeHTML(authorName)}</div>
@@ -470,12 +470,12 @@ async function loadMessages(sessionId, isPush) {
     </div>
     <div class="msg-meta">
     <span>\${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-    \${showRecallBtn ? \`<span class="action-btn" onclick="recallMessage('\${escapeHTML(m.msg_id)}')">🗑️</span>\` : ''}
-    \${showReplyBtn ? \`<span class="action-btn" onclick="startReply('\${escapeHTML(m.msg_id)}')">↩️</span>\` : ''}
-    <span class="action-btn" onclick="startQuote('\${escapeHTML(m.msg_id)}', '\${escapeHTML(m.content)}')">💬</span>
-    \${showGroupOps ? \`<span class="action-btn" onclick="insertAtTag('\${escapeHTML(m.author_name)}')">@</span>\` : ''}
-    \${showGroupOps ? \`<span class="action-btn" onclick="openMutePanel('\${escapeHTML(m.author_name)}')">🔇 禁言</span>\` : ''}
-    \${showGroupOps ? \`<span class="action-btn" onclick="kickMember('\${escapeHTML(m.author_name)}')">👢</span>\` : ''}
+    \${showRecallBtn ? \`<span class="action-btn" title="撤回" onclick="recallMessage('\${escapeHTML(m.msg_id)}')">🗑️</span>\` : ''}
+    \${showReplyBtn ? \`<span class="action-btn" title="回复" onclick="startReply('\${escapeHTML(m.msg_id)}')">↩️</span>\` : ''}
+    <span class="action-btn" title="引用" onclick="startQuote('\${escapeHTML(m.msg_id)}', '\${escapeHTML(m.content)}')">💬</span>
+    \${showGroupOps ? \`<span class="action-btn" title="提及" onclick="insertAtTag('\${escapeHTML(m.author_name)}')">@</span>\` : ''}
+    \${showGroupOps ? \`<span class="action-btn" title="禁言管理" onclick="openMutePanel('\${escapeHTML(m.author_name)}')">🔇</span>\` : ''}
+    \${showGroupOps ? \`<span class="action-btn" title="踢出" onclick="kickMember('\${escapeHTML(m.author_name)}')">👢</span>\` : ''}
     </div>
     </div>
     \`;
