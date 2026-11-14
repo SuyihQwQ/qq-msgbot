@@ -282,7 +282,6 @@ let quoteToMsg = null;
 let sessionsData = [];
 let ws = null;
 
-// 倒计时相关 (基准时间改为消息的 timestamp)
 let replyBaseTime = 0;
 let replyTimeoutTimer = null;
 
@@ -302,8 +301,8 @@ function formatName(id, isGroup = false, isBot = false) {
   if (!id || id === '未知用户') return '用户_未知';
   if (isBot) return 'Bot';
   const suffix = id.length > 4 ? id.slice(-4) : id;
-  if (isGroup) return `群聊_${suffix}`;
-  return `用户_${suffix}`;
+  if (isGroup) return '群聊_' + suffix;
+  return '用户_' + suffix;
 }
 
 function getColor(id) {
@@ -313,7 +312,7 @@ function getColor(id) {
     hash = id.charCodeAt(i) + ((hash << 5) - hash);
   }
   const h = Math.abs(hash) % 360;
-  return `hsl(${h}, 65%, 55%)`;
+  return 'hsl(' + h + ', 65%, 55%)';
 }
 
 async function copyId(id, event) {
@@ -448,16 +447,16 @@ async function loadSessions() {
   const listEl = document.getElementById('session-list');
   listEl.innerHTML = sessionsData.map(s => {
     const displayName = formatName(s.id, s.is_group === 1);
-    return `
-    <div class="session-item ${currentSession?.id === s.id ? 'active' : ''}" onclick="selectSession('${escapeHTML(s.id)}')">
-    <div class="session-name">${s.is_group ? '👥 ' : '👤 '}${displayName}</div>
-    <div class="session-id" title="点击复制完整 ID" onclick="copyId('${escapeHTML(s.id)}', event)">
-    <span class="full-id">${escapeHTML(s.id)}</span>
-    </div>
-    <div class="session-preview">${escapeHTML(s.last_message || '暂无消息')}</div>
-    <span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession('${escapeHTML(s.id)}')">🗑️</span>
-    </div>
-    `}).join('');
+    // 使用字符串拼接替代模板字符串
+    return '<div class="session-item ' + (currentSession?.id === s.id ? 'active' : '') + '" onclick="selectSession(\'' + escapeHTML(s.id) + '\')">' +
+    '<div class="session-name">' + (s.is_group ? '👥 ' : '👤 ') + displayName + '</div>' +
+    '<div class="session-id" title="点击复制完整 ID" onclick="copyId(\'' + escapeHTML(s.id) + '\', event)">' +
+    '<span class="full-id">' + escapeHTML(s.id) + '</span>' +
+    '</div>' +
+    '<div class="session-preview">' + escapeHTML(s.last_message || '暂无消息') + '</div>' +
+    '<span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession(\'' + escapeHTML(s.id) + '\')">🗑️</span>' +
+    '</div>';
+  }).join('');
 }
 
 async function selectSession(id) {
@@ -493,7 +492,7 @@ async function deleteSession(id) {
 // ================= 消息列表渲染 =================
 async function loadMessages(sessionId, isPush) {
   if (!isTokenValid()) return;
-  const res = await fetch(`/api/messages?id=${sessionId}`, { headers: { 'Authorization': 'Bearer ' + token } });
+  const res = await fetch('/api/messages?id=' + sessionId, { headers: { 'Authorization': 'Bearer ' + token } });
   const msgs = await res.json();
 
   if (sessionId !== currentSession.id) return;
@@ -505,7 +504,7 @@ async function loadMessages(sessionId, isPush) {
   const now = Date.now();
   msgEl.innerHTML = msgs.map(m => {
     if (m.type === 'system') {
-      return `<div class="msg system"><div class="msg-system-text">${escapeHTML(m.content)}</div></div>`;
+      return '<div class="msg system"><div class="msg-system-text">' + escapeHTML(m.content) + '</div></div>';
     }
 
     const isOut = m.type === 'outgoing';
@@ -523,50 +522,47 @@ async function loadMessages(sessionId, isPush) {
 
     let authorHtml = '';
     if (isOut) {
-      authorHtml = `<div class="msg-author" title="点击复制" onclick="copyId('${escapeHTML(rawAuthorName)}', event)">
-      <div class="avatar-circle" style="background: ${color};">B</div> Bot ${isGroup && rawAuthorName !== 'Bot' ? formatName(rawAuthorName, false) : ''}
-      </div>`;
+      authorHtml = '<div class="msg-author" title="点击复制" onclick="copyId(\'' + escapeHTML(rawAuthorName) + '\', event)">' +
+      '<div class="avatar-circle" style="background: ' + color + ';">B</div> Bot ' + (isGroup && rawAuthorName !== 'Bot' ? formatName(rawAuthorName, false) : '') +
+      '</div>';
     } else {
-      authorHtml = `<div class="msg-author" title="点击复制" onclick="copyId('${escapeHTML(rawAuthorName)}', event)">
-      <div class="avatar-circle" style="background: ${color};">${rawAuthorName.slice(-2, -1) || 'U'}</div> ${displayName}
-      </div>`;
+      authorHtml = '<div class="msg-author" title="点击复制" onclick="copyId(\'' + escapeHTML(rawAuthorName) + '\', event)">' +
+      '<div class="avatar-circle" style="background: ' + color + ';">' + (rawAuthorName.slice(-2, -1) || 'U') + '</div> ' + displayName +
+      '</div>';
     }
 
-    let quoteHtml = m.quote_content ? `<div class="quote-box">${escapeHTML(m.quote_content)}</div>` : '';
+    let quoteHtml = m.quote_content ? '<div class="quote-box">' + escapeHTML(m.quote_content) + '</div>' : '';
 
     let attHtml = '';
     if (m.attachments) {
       try {
         JSON.parse(m.attachments).forEach(att => {
-          if (att.error) attHtml += `<div><span class="attachment-error">[${escapeHTML(att.error)}]</span></div>`;
-          else if (att.content_type?.startsWith('image/')) attHtml += `<img src="${escapeHTML(att.url)}" class="chat-img" onerror="handleImgError(this)" onclick="window.open('${escapeHTML(att.url)}')" />`;
-          else attHtml += `<a href="${escapeHTML(att.url)}" target="_blank" class="attachment-link">🎤 [语音/文件]</a>`;
+          if (att.error) attHtml += '<div><span class="attachment-error">[' + escapeHTML(att.error) + ']</span></div>';
+          else if (att.content_type && att.content_type.startsWith('image/')) attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onerror="handleImgError(this)" onclick="window.open(\'' + escapeHTML(att.url) + '\')" />';
+          else attHtml += '<a href="' + escapeHTML(att.url) + '" target="_blank" class="attachment-link">🎤 [语音/文件]</a>';
         });
       } catch (e) {}
     }
 
-    return `
-    <div class="msg ${isOut ? 'outgoing' : 'incoming'}">
-    ${authorHtml}
-    <div class="msg-bubble">
-    ${quoteHtml}
-    ${m.content ? escapeHTML(m.content) : ''}
-    ${attHtml}
-    </div>
-    <div class="msg-meta">
-    <span>${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-    ${showRecallBtn ? `<span class="action-btn" title="撤回" onclick="recallMessage('${escapeHTML(m.msg_id)}')">🗑️</span>` : ''}
-    ${showReplyBtn ? `<span class="action-btn" title="被动回复" onclick="startReply('${escapeHTML(m.msg_id)}', ${m.timestamp})">↩️</span>` : ''}
-    <span class="action-btn" title="引用并回复" onclick="startQuote('${escapeHTML(m.msg_id)}', '${escapeHTML(m.content)}', ${m.timestamp})">💬</span>
-    ${showGroupOps ? `<span class="action-btn" title="提及" onclick="insertAtTag('${escapeHTML(rawAuthorName)}')">@</span>` : ''}
-    ${showGroupOps ? `<span class="action-btn" title="禁言管理" onclick="openMutePanel('${escapeHTML(rawAuthorName)}')">🔇</span>` : ''}
-    ${showGroupOps ? `<span class="action-btn" title="踢出" onclick="kickMember('${escapeHTML(rawAuthorName)}')">👢</span>` : ''}
-    </div>
-    </div>
-    `;
+    return '<div class="msg ' + (isOut ? 'outgoing' : 'incoming') + '">' +
+    authorHtml +
+    '<div class="msg-bubble">' +
+    quoteHtml +
+    (m.content ? escapeHTML(m.content) : '') +
+    attHtml +
+    '</div>' +
+    '<div class="msg-meta">' +
+    '<span>' + new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + '</span>' +
+    (showRecallBtn ? '<span class="action-btn" title="撤回" onclick="recallMessage(\'' + escapeHTML(m.msg_id) + '\')">🗑️</span>' : '') +
+    (showReplyBtn ? '<span class="action-btn" title="被动回复" onclick="startReply(\'' + escapeHTML(m.msg_id) + '\', ' + m.timestamp + ')">↩️</span>' : '') +
+    '<span class="action-btn" title="引用并回复" onclick="startQuote(\'' + escapeHTML(m.msg_id) + '\', \'' + escapeHTML(m.content) + '\', ' + m.timestamp + ')">💬</span>' +
+    (showGroupOps ? '<span class="action-btn" title="提及" onclick="insertAtTag(\'' + escapeHTML(rawAuthorName) + '\')">@</span>' : '') +
+    (showGroupOps ? '<span class="action-btn" title="禁言管理" onclick="openMutePanel(\'' + escapeHTML(rawAuthorName) + '\')">🔇</span>' : '') +
+    (showGroupOps ? '<span class="action-btn" title="踢出" onclick="kickMember(\'' + escapeHTML(rawAuthorName) + '\')">👢</span>' : '') +
+    '</div>' +
+    '</div>';
   }).join('');
 
-  // 👇 彻底自动滚动到底部
   const scrollToBottom = () => { msgEl.scrollTop = msgEl.scrollHeight; };
   scrollToBottom();
   setTimeout(scrollToBottom, 50);
@@ -575,16 +571,15 @@ async function loadMessages(sessionId, isPush) {
 
 // ================= 禁言管理专属面板 =================
 async function openMutePanel(memberOpenid) {
-  const loadingHtml = `
-  <div class="mute-status-box">
-  <div class="mute-status-text" style="color:#1890ff">正在查询禁言状态...</div>
-  </div>
-  <div class="modal-btns"><button class="modal-btn cancel" onclick="closeModal()">关闭</button></div>
-  `;
-  showModal({ title: `管理成员: ${formatName(memberOpenid)}`, html: loadingHtml, buttons: [] });
+  const loadingHtml = '<div class="mute-status-box">' +
+  '<div class="mute-status-text" style="color:#1890ff">正在查询禁言状态...</div>' +
+  '</div>' +
+  '<div class="modal-btns"><button class="modal-btn cancel" onclick="closeModal()">关闭</button></div>';
+
+  showModal({ title: '管理成员: ' + formatName(memberOpenid), html: loadingHtml, buttons: [] });
 
   try {
-    const res = await fetch(`/api/mute_status?group_id=${currentSession.id}&member_id=${memberOpenid}`, {
+    const res = await fetch('/api/mute_status?group_id=' + currentSession.id + '&member_id=' + memberOpenid, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
     const data = await res.json();
@@ -594,30 +589,26 @@ async function openMutePanel(memberOpenid) {
     let btns = [{ text: '关闭', value: null, type: 'cancel' }];
 
     if (data.isMuted) {
-      statusHtml = `
-      <div class="mute-status-box">
-      <div class="mute-status-text" style="color:#ff4d4f">🔇 当前状态：已禁言</div>
-      <div class="mute-status-desc">到期时间：${new Date(data.expireAt).toLocaleString()}</div>
-      </div>
-      `;
-      btns.unshift({ text: '解除禁言', value: 'unmute', type: 'success' });
+      statusHtml = '<div class="mute-status-box">' +
+      '<div class="mute-status-text" style="color:#ff4d4f">🔇 当前状态：已禁言</div>' +
+      '<div class="mute-status-desc">到期时间：' + new Date(data.expireAt).toLocaleString() + '</div>' +
+      '</div>';
+  btns.unshift({ text: '解除禁言', value: 'unmute', type: 'success' });
     } else {
-      statusHtml = `
-      <div class="mute-status-box">
-      <div class="mute-status-text" style="color:#52c41a">🔊 当前状态：未禁言</div>
-      </div>
-      <div style="margin-bottom: 10px; font-size: 14px;">选择禁言时长：</div>
-      <div class="mute-actions">
-      <div class="mute-chip" onclick="selectMuteTime(this, 10)">10分钟</div>
-      <div class="mute-chip" onclick="selectMuteTime(this, 60)">1小时</div>
-      <div class="mute-chip" onclick="selectMuteTime(this, 1440)">1天</div>
-      </div>
-      <input type="number" id="custom-mute-mins" class="modal-input" placeholder="自定义分钟数" style="margin-top:10px;">
-      `;
+      statusHtml = '<div class="mute-status-box">' +
+      '<div class="mute-status-text" style="color:#52c41a">🔊 当前状态：未禁言</div>' +
+      '</div>' +
+      '<div style="margin-bottom: 10px; font-size: 14px;">选择禁言时长：</div>' +
+      '<div class="mute-actions">' +
+      '<div class="mute-chip" onclick="selectMuteTime(this, 10)">10分钟</div>' +
+      '<div class="mute-chip" onclick="selectMuteTime(this, 60)">1小时</div>' +
+      '<div class="mute-chip" onclick="selectMuteTime(this, 1440)">1天</div>' +
+      '</div>' +
+      '<input type="number" id="custom-mute-mins" class="modal-input" placeholder="自定义分钟数" style="margin-top:10px;">';
       btns.unshift({ text: '确认禁言', value: 'mute', type: 'danger' });
     }
 
-    const action = await showModal({ title: `成员: ${formatName(memberOpenid)}`, html: statusHtml, buttons: btns });
+    const action = await showModal({ title: '成员: ' + formatName(memberOpenid), html: statusHtml, buttons: btns });
 
     if (action === 'unmute') {
       const req = await fetch('/api/unmute', {
@@ -641,7 +632,7 @@ async function openMutePanel(memberOpenid) {
       else showToast('禁言失败', 'error');
     }
   } catch (err) {
-    showModal({ title: '错误', html: `<div style="color:red;margin-bottom:15px">${err.message}</div>`, buttons: [{ text: '关闭', value: null, type: 'cancel' }] });
+    showModal({ title: '错误', html: '<div style="color:red;margin-bottom:15px">' + err.message + '</div>', buttons: [{ text: '关闭', value: null, type: 'cancel' }] });
   }
 }
 
@@ -655,7 +646,7 @@ window.selectMuteTime = function(el, mins) {
 function insertAtTag(authorId) {
   if (!authorId) return;
   const inputEl = document.getElementById('msg-input');
-  const tag = `<qqbot-at-user id="${authorId}" /> `;
+  const tag = '<qqbot-at-user id="' + authorId + '" /> ';
   if (!inputEl.value.includes(tag)) inputEl.value += tag;
   inputEl.focus();
 }
@@ -683,24 +674,24 @@ function updateModeUI() {
       } else {
         const mins = Math.floor(remaining / 60000);
         const secs = Math.floor((remaining % 60000) / 1000);
-        const timeStr = `${mins}分${secs.toString().padStart(2, '0')}秒`;
-        const originalText = quoteToMsg ? `正在引用: ${(quoteToMsg.content || '[非文本]').substring(0, 10)}...` : '正在被动回复...';
-        tipText.innerText = `${originalText} (剩余 ${timeStr})`;
+        const timeStr = mins + '分' + secs.toString().padStart(2, '0') + '秒';
+        const originalText = quoteToMsg ? '正在引用: ' + (quoteToMsg.content || '[非文本]').substring(0, 10) + '...' : '正在被动回复...';
+        tipText.innerText = originalText + ' (剩余 ' + timeStr + ')';
       }
     }, 1000);
 
     const remaining = expireTime - Date.now();
     const mins = Math.floor(remaining / 60000);
     const secs = Math.floor((remaining % 60000) / 1000);
-    const timeStr = `${mins}分${secs.toString().padStart(2, '0')}秒`;
-    const originalText = quoteToMsg ? `正在引用: ${(quoteToMsg.content || '[非文本]').substring(0, 10)}...` : '正在被动回复...';
-    tipText.innerText = `${originalText} (剩余 ${timeStr})`;
+    const timeStr = mins + '分' + secs.toString().padStart(2, '0') + '秒';
+    const originalText = quoteToMsg ? '正在引用: ' + (quoteToMsg.content || '[非文本]').substring(0, 10) + '...' : '正在被动回复...';
+    tipText.innerText = originalText + ' (剩余 ' + timeStr + ')';
 
   } else {
     label.innerText = '主动';
     label.style.color = '#fa8c16';
     btn.innerText = '需要被动？去点消息回复';
-    tipText.innerText = quoteToMsg ? `正在主动引用: ${(quoteToMsg.content || '[非文本]').substring(0, 15)}...` : '正在主动发送...';
+    tipText.innerText = quoteToMsg ? '正在主动引用: ' + (quoteToMsg.content || '[非文本]').substring(0, 15) + '...' : '正在主动发送...';
   }
 
   if (!replyToMsg && !quoteToMsg) {
@@ -753,13 +744,11 @@ async function recallMessage(msgId) {
 }
 
 async function kickMember(memberOpenid) {
-  const html = `
-  <div style="margin-bottom:15px;font-size:14px;">确定要将 <b>${formatName(memberOpenid)}</b> 踢出群吗？</div>
-  <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;color:#ff4d4f;">
-  <input type="checkbox" id="kick-blacklist" style="width:16px;height:16px;accent-color:#ff4d4f;">
-  同时加入群黑名单
-  </label>
-  `;
+  const html = '<div style="margin-bottom:15px;font-size:14px;">确定要将 <b>' + formatName(memberOpenid) + '</b> 踢出群吗？</div>' +
+  '<label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;color:#ff4d4f;">' +
+  '<input type="checkbox" id="kick-blacklist" style="width:16px;height:16px;accent-color:#ff4d4f;">' +
+  '同时加入群黑名单' +
+  '</label>';
 
   const confirm = await showModal({
     title: '踢出群聊',
