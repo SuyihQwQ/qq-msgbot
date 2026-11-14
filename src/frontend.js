@@ -567,8 +567,11 @@ async function loadMessages(sessionId, isPush) {
     `;
   }).join('');
 
-  // 👇 彻底自动滚动到底部
-  msgEl.scrollTop = msgEl.scrollHeight;
+  // 👇 强力自动滚动到底部（防止图片异步加载导致没滚到位）
+  const scrollToBottom = () => { msgEl.scrollTop = msgEl.scrollHeight; };
+  scrollToBottom();
+  setTimeout(scrollToBottom, 50);
+  setTimeout(scrollToBottom, 200);
 }
 
 // ================= 禁言管理专属面板 =================
@@ -670,8 +673,8 @@ function updateModeUI() {
     label.style.color = '#52c41a';
     btn.innerText = '转为主动';
 
-    // 👇 计算基于原消息发出时间的剩余时间
-    const expireTime = replyBaseTime + 5 * 60 * 1000;
+    // 👇 修复类型转换 Bug：强制将 replyBaseTime 转为 Number
+    const expireTime = Number(replyBaseTime) + 5 * 60 * 1000;
 
     replyTimeoutTimer = setInterval(() => {
       const remaining = expireTime - Date.now();
@@ -688,7 +691,6 @@ function updateModeUI() {
       }
     }, 1000);
 
-    // 立即执行一次渲染剩余时间
     const remaining = expireTime - Date.now();
     const mins = Math.floor(remaining / 60000);
     const secs = Math.floor((remaining % 60000) / 1000);
@@ -711,7 +713,8 @@ function updateModeUI() {
 }
 
 function startReply(msgId, timestamp) {
-  // 检查是否已经超时
+  // 👇 修复类型转换 Bug
+  timestamp = Number(timestamp) || Date.now();
   if (Date.now() - timestamp > 5 * 60 * 1000) {
     return showToast('该消息已超过 5 分钟，无法被动回复', 'error');
   }
@@ -723,8 +726,7 @@ function startReply(msgId, timestamp) {
 
 function startQuote(msgId, content, timestamp) {
   quoteToMsg = { msgId, content };
-  // 引用默认不开启被动，但如果要开启被动，基准时间也是消息时间
-  replyBaseTime = timestamp;
+  replyBaseTime = Number(timestamp) || Date.now();
   updateModeUI();
   document.getElementById('msg-input').focus();
 }

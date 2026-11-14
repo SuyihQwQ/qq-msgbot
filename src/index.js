@@ -24,7 +24,7 @@ function parseMessageContent(d) {
   contentText = contentText.replace(/<faceType=[^>]+>/gi, '[表情]');
   contentText = contentText.replace(/<face[^>]+>/gi, '[表情]');
   contentText = contentText.replace(/<@!?([A-Za-z0-9]+)>/gi, (match, openid) => `@${openid}`);
-  return contentText.trim(); 
+  return contentText.trim();
 }
 
 // ================= node:crypto 密钥构造 =================
@@ -41,12 +41,12 @@ async function ensureTables(env) {
   try {
     await env.DB.batch([
       env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, is_group INTEGER NOT NULL, name TEXT, last_active INTEGER, last_message TEXT, bot_openid TEXT)`),
-      env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, type TEXT NOT NULL, role TEXT NOT NULL, 
-        content TEXT NOT NULL, attachments TEXT, msg_id TEXT, timestamp INTEGER, is_passive INTEGER DEFAULT 0, 
-        author_name TEXT, quote_msg_id TEXT, quote_content TEXT
-      )`),
-      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)`)
+                       env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
+                         id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, type TEXT NOT NULL, role TEXT NOT NULL,
+                         content TEXT NOT NULL, attachments TEXT, msg_id TEXT, timestamp INTEGER, is_passive INTEGER DEFAULT 0,
+                         author_name TEXT, quote_msg_id TEXT, quote_content TEXT
+                       )`),
+                       env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)`)
     ]);
     try { await env.DB.exec(`ALTER TABLE sessions ADD COLUMN bot_openid TEXT`); } catch (e) {}
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN attachments TEXT`); } catch (e) {}
@@ -84,11 +84,11 @@ async function processAttachments(env, attachments) {
     if (isMedia) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
-        
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
         const fileRes = await fetch(att.url, { signal: controller.signal });
         clearTimeout(timeoutId);
-        
+
         if (!fileRes.ok) throw new Error('下载失败');
         const buffer = await fileRes.arrayBuffer();
         if (buffer.byteLength > 2 * 1024 * 1024) {
@@ -141,13 +141,13 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   const body = {};
   if (msgId) { body.msg_id = msgId; body.msg_seq = msgSeq; }
   if (quoteMsgId) { body.message_reference = { message_id: quoteMsgId }; }
-  
+
   if (content.includes('<qqbot-at-user') || content.includes('<qqbot-at-everyone')) {
-    body.msg_type = 2; body.markdown = { content: content }; body.content = ''; 
+    body.msg_type = 2; body.markdown = { content: content }; body.content = '';
   } else {
     body.msg_type = 0; body.content = content;
   }
-  
+
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `QQBot ${token}` }, body: JSON.stringify(body) });
   const data = await res.json();
   if (data.code) throw new Error(`发送失败: ${data.code} ${data.message || ''}`);
@@ -224,7 +224,7 @@ async function getMuteStatus(env, groupOpenid, memberOpenid) {
   });
   const data = await res.json();
   if (data.code) throw new Error(`查询失败: ${data.code} ${data.message || ''}`);
-  
+
   const mutedMember = data.members?.find(m => m.member_openid === memberOpenid);
   return {
     isMuted: !!mutedMember,
@@ -270,7 +270,7 @@ async function processIncomingMessage(payload, env, ctx) {
     let quoteContent = null;
     if (d.message_type === 103 && d.msg_elements && d.msg_elements.length > 0) {
       const refElement = d.msg_elements[0];
-      quoteMsgId = refElement.msg_idx || null; 
+      quoteMsgId = refElement.msg_idx || null;
       quoteContent = parseMessageContent(refElement);
       if (!safeContent) safeContent = '[引用消息]';
     }
@@ -285,12 +285,17 @@ async function processIncomingMessage(payload, env, ctx) {
       else previewContent = '[文件]';
     }
     if (!previewContent) previewContent = '[暂不支持的消息]';
-    
-    // 👇 修复：统一预览消息格式为 [用户_XXXX]
+
     const suffix = authorName && authorName.length > 4 ? authorName.slice(-4) : '未知';
     const finalPreview = `[用户_${suffix}] ${previewContent}`;
 
+    // 👇 核心修复：优先使用 QQ 消息事件里的时间戳作为基准，如果没有则用本地时间
     const now = Date.now();
+    let msgTime = now;
+    if (d.timestamp) {
+      const parsed = new Date(d.timestamp).getTime();
+      if (!isNaN(parsed)) msgTime = parsed;
+    }
 
     await env.DB.prepare(
       `INSERT INTO sessions (id, is_group, name, last_active, last_message) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_active = excluded.last_active, last_message = excluded.last_message`
@@ -299,11 +304,11 @@ async function processIncomingMessage(payload, env, ctx) {
     const existing = await env.DB.prepare(`SELECT id FROM messages WHERE msg_id = ?`).bind(d.id).first();
     if (!existing) {
       await env.DB.prepare(
-        `INSERT INTO messages (session_id, type, role, content, attachments, msg_id, timestamp, author_name, quote_msg_id, quote_content) 
-         VALUES (?, 'incoming', 'user', ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO messages (session_id, type, role, content, attachments, msg_id, timestamp, author_name, quote_msg_id, quote_content)
+        VALUES (?, 'incoming', 'user', ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
-        sessionId, safeContent || '', attachmentsData || null, d.id || null, 
-        now, authorName || '未知', quoteMsgId || null, quoteContent || null
+        sessionId, safeContent || '', attachmentsData || null, d.id || null,
+        msgTime, authorName || '未知', quoteMsgId || null, quoteContent || null // 👈 写入 msgTime
       ).run();
     }
 
@@ -405,20 +410,20 @@ async function handleApi(request, env, path, ctx) {
       const quoteContent = reqData.quoteContent || null;
 
       if (!sessionId || !content) return Response.json({ error: '参数缺失' }, { status: 400 });
-      
+
       const res = await sendQQMessage(env, sessionId, isGroup, content, msgId, msgSeq, quoteMsgId);
       const now = Date.now();
-      
+
       await env.DB.prepare(
-        `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, is_passive, quote_msg_id, quote_content) 
-         VALUES (?, 'outgoing', 'bot', ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, is_passive, quote_msg_id, quote_content)
+        VALUES (?, 'outgoing', 'bot', ?, ?, ?, ?, ?, ?)`
       ).bind(
-        sessionId, content, res.id || null, now, msgId ? 1 : 0, 
+        sessionId, content, res.id || null, now, msgId ? 1 : 0,
         quoteMsgId || null, quoteContent || null
       ).run();
-      
+
       await env.DB.prepare(`UPDATE sessions SET last_active = ?, last_message = ? WHERE id = ?`).bind(now, `[我] ${content}`, sessionId).run();
-      
+
       ctx.waitUntil(env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('global')).broadcast({ type: 'update', sessionId }));
       return Response.json({ ok: true, msgId: res.id || null });
     }
@@ -444,7 +449,7 @@ async function handleApi(request, env, path, ctx) {
       const groupOpenid = urlObj.searchParams.get('group_id');
       const memberOpenid = urlObj.searchParams.get('member_id');
       if (!groupOpenid || !memberOpenid) return Response.json({ error: '参数缺失' }, { status: 400 });
-      
+
       const status = await getMuteStatus(env, groupOpenid, memberOpenid);
       return Response.json(status);
     }
@@ -472,9 +477,9 @@ async function handleApi(request, env, path, ctx) {
     }
 
     return Response.json({ error: 'Not Found' }, { status: 404 });
-  } catch (err) { 
+  } catch (err) {
     console.error('API异常:', err);
-    return Response.json({ error: err.message || 'Server Error' }, { status: 500 }); 
+    return Response.json({ error: err.message || 'Server Error' }, { status: 500 });
   }
 }
 
@@ -487,11 +492,11 @@ async function handleQQWebhook(request, env, ctx) {
 
     const signature = request.headers.get('X-Signature-Ed25519');
     const timestamp = request.headers.get('X-Signature-Timestamp');
-    
+
     if (!signature || !timestamp) {
       return new Response('Missing Signature', { status: 401 });
     }
-    
+
     const valid = await verifyQQSignature(env, signature, timestamp, rawBody);
     if (!valid) {
       console.warn('⛔ 验签未通过，拒绝处理请求');
@@ -506,9 +511,9 @@ async function handleQQWebhook(request, env, ctx) {
     else if (SYSTEM_EVENTS.includes(t)) ctx.waitUntil(processSystemEvent(payload, env, ctx));
 
     return Response.json({ ok: true });
-  } catch (e) { 
+  } catch (e) {
     console.error('Webhook 解析异常:', e);
-    return new Response('Bad Request', { status: 400 }); 
+    return new Response('Bad Request', { status: 400 });
   }
 }
 
