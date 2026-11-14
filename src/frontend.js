@@ -486,6 +486,79 @@ async function deleteSession(index) {
   loadSessions();
 }
 
+// ================= 👇 语音播放专属逻辑 =================
+async function playVoice(index) {
+  const m = currentMsgs[index];
+  if (!m || !m.attachments) return;
+  const atts = JSON.parse(m.attachments);
+  const voiceAtt = atts.find(a => a.content_type && a.content_type.includes('voice'));
+  if (!voiceAtt || !voiceAtt.url) return showToast('该语音无法播放', 'error');
+
+  showToast('正在解码语音，请稍候...', 'info');
+
+  try {
+    // 1. 从 KV 下载原始数据
+    const res = await fetch(voiceAtt.url);
+    let buffer = await res.arrayBuffer();
+    let uint8 = new Uint8Array(buffer);
+
+    // 2. 剥离腾讯加在头部的 0x02 字节
+    if (uint8[0] === 0x02) {
+      uint8 = uint8.slice(1);
+    }
+
+    // 3. 动态引入 silk-wasm 进行纯前端解码
+    const { decode } = await import('https://esm.sh/silk-wasm@3.2.0');
+
+    // QQ 语音通常采样率为 24000Hz
+    const decodeResult = await decode(uint8, 24000);
+    const pcmData = decodeResult.data;
+
+    // 4. 将裸 PCM 包装为 WAV 格式
+    const wavBuffer = encodeWav(pcmData, 24000);
+
+    // 5. 生成 URL 并播放
+    const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+    const audioUrl = URL.createObjectURL(blob);
+    const audio = new Audio(audioUrl);
+    audio.play();
+
+    // 释放内存
+    audio.onended = () => URL.revokeObjectURL(audioUrl);
+
+  } catch (e) {
+    console.error(e);
+    showToast('语音解码播放失败', 'error');
+  }
+}
+
+// 辅助函数：为 PCM 数据添加 WAV 头
+function encodeWav(pcmData, sampleRate) {
+  const buffer = new ArrayBuffer(44 + pcmData.length);
+  const view = new DataView(buffer);
+  const writeString = (view, offset, string) => {
+    for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+  };
+
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + pcmData.length, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM format
+    view.setUint16(22, 1, true); // Mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, pcmData.length, true);
+
+    const pcmView = new Uint8Array(buffer, 44);
+    pcmView.set(pcmData);
+    return buffer;
+}
+
 // ================= 消息列表渲染 =================
 async function loadMessages(sessionId, isPush) {
   if (!isTokenValid()) return;
@@ -540,10 +613,16 @@ async function loadMessages(sessionId, isPush) {
     if (m.attachments) {
       try {
         JSON.parse(m.attachments).forEach(att => {
-          // 👇 修复图片点击：利用 this.src 避免字符串截断
-          if (att.error) attHtml += '<div><span class="attachment-error">[' + escapeHTML(att.error) + ']</span></div>';
-          else if (att.content_type && att.content_type.startsWith('image/')) attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
-          else attHtml += '<a href="' + escapeHTML(att.url) + '" target="_blank" class="attachment-link">🎤 [语音/文件]</a>';
+          if (att.error) {
+            attHtml += '<div><span class="attachment-error">[' + escapeHTML(att.error) + ']</span></div>';
+          } else if (att.content_type && att.content_type.startsWith('image/')) {
+            attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
+          } else if (att.content_type && att.content_type.includes('voice')) {
+            // 👇 语音专属按钮，点击触发 WASM 解码
+            attHtml += '<span class="action-btn" style="display:inline-block; margin-top:8px; padding:6px 12px; border-color:#1890ff; color:#1890ff; font-weight:bold;" onclick="playVoice(' + i + ')">🎤 [语音] 点击播放</span>';
+          } else {
+            attHtml += '<a href="' + escapeHTML(att.url) + '" target="_blank" class="attachment-link">📄 [文件] 点击下载</a>';
+          }
         });
       } catch (e) {}
     }
