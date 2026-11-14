@@ -545,7 +545,6 @@ async function loadMessages(sessionId, isPush) {
       } catch (e) {}
     }
 
-    // 👇 传入 m.timestamp 作为倒计时基准
     return `
     <div class="msg ${isOut ? 'outgoing' : 'incoming'}">
     ${authorHtml}
@@ -567,7 +566,7 @@ async function loadMessages(sessionId, isPush) {
     `;
   }).join('');
 
-  // 👇 强力自动滚动到底部（防止图片异步加载导致没滚到位）
+  // 👇 彻底自动滚动到底部
   const scrollToBottom = () => { msgEl.scrollTop = msgEl.scrollHeight; };
   scrollToBottom();
   setTimeout(scrollToBottom, 50);
@@ -673,7 +672,6 @@ function updateModeUI() {
     label.style.color = '#52c41a';
     btn.innerText = '转为主动';
 
-    // 👇 修复类型转换 Bug：强制将 replyBaseTime 转为 Number
     const expireTime = Number(replyBaseTime) + 5 * 60 * 1000;
 
     replyTimeoutTimer = setInterval(() => {
@@ -713,7 +711,6 @@ function updateModeUI() {
 }
 
 function startReply(msgId, timestamp) {
-  // 👇 修复类型转换 Bug
   timestamp = Number(timestamp) || Date.now();
   if (Date.now() - timestamp > 5 * 60 * 1000) {
     return showToast('该消息已超过 5 分钟，无法被动回复', 'error');

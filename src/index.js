@@ -289,13 +289,8 @@ async function processIncomingMessage(payload, env, ctx) {
     const suffix = authorName && authorName.length > 4 ? authorName.slice(-4) : '未知';
     const finalPreview = `[用户_${suffix}] ${previewContent}`;
 
-    // 👇 核心修复：优先使用 QQ 消息事件里的时间戳作为基准，如果没有则用本地时间
+    // 👇 直接使用服务器接收到的毫秒时间，绝对精准
     const now = Date.now();
-    let msgTime = now;
-    if (d.timestamp) {
-      const parsed = new Date(d.timestamp).getTime();
-      if (!isNaN(parsed)) msgTime = parsed;
-    }
 
     await env.DB.prepare(
       `INSERT INTO sessions (id, is_group, name, last_active, last_message) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_active = excluded.last_active, last_message = excluded.last_message`
@@ -308,7 +303,7 @@ async function processIncomingMessage(payload, env, ctx) {
         VALUES (?, 'incoming', 'user', ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         sessionId, safeContent || '', attachmentsData || null, d.id || null,
-        msgTime, authorName || '未知', quoteMsgId || null, quoteContent || null // 👈 写入 msgTime
+        now, authorName || '未知', quoteMsgId || null, quoteContent || null
       ).run();
     }
 
