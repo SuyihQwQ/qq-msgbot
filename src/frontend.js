@@ -279,6 +279,7 @@ export const FRONTEND_HTML = `
       return res;
     };
 
+    // 👇 抽离滚动函数，防止内联转义引发语法崩溃
     window.scrollToBottom = function(smooth = false) {
       const msgEl = document.getElementById('messages');
       if (msgEl) {
@@ -287,6 +288,18 @@ export const FRONTEND_HTML = `
         } else {
           msgEl.scrollTop = msgEl.scrollHeight;
         }
+      }
+    };
+
+    window.isNearBottom = function() {
+      const msgEl = document.getElementById('messages');
+      if (!msgEl) return false;
+      return msgEl.scrollHeight - msgEl.scrollTop - msgEl.clientHeight < 150;
+    };
+
+    window.handleImgLoad = function() {
+      if (window.isNearBottom()) {
+        window.scrollToBottom(false);
       }
     };
 
@@ -573,8 +586,8 @@ export const FRONTEND_HTML = `
       if (msgEl.dataset.lastMsgId === lastMsgId) return; 
       msgEl.dataset.lastMsgId = lastMsgId;
 
-      // 👇 核心修复：在修改 DOM 之前，判断用户当前是否在底部
-      const isNearBottom = msgEl.scrollHeight - msgEl.scrollTop - msgEl.clientHeight < 150;
+      // 在修改 DOM 之前，判断用户当前是否在底部
+      const isNear = window.isNearBottom();
 
       currentMsgs = msgs;
 
@@ -617,8 +630,8 @@ export const FRONTEND_HTML = `
               if (att.error) {
                 attHtml += '<div><span class="attachment-error">[' + escapeHTML(att.error) + ']</span></div>';
               } else if (att.content_type && att.content_type.startsWith('image/')) {
-                // 👇 图片加载完成时，如果用户还在底部，才自动滚动
-                attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onload="if(document.getElementById(\'messages\').scrollHeight - document.getElementById(\'messages\').scrollTop - document.getElementById(\'messages\').clientHeight < 300) window.scrollToBottom(false)" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
+                // 👇 修复：调用外部全局函数，避免长内联 JS 引发语法崩溃
+                attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onload="handleImgLoad()" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
               } else {
                 attHtml += '<a href="' + escapeHTML(att.url) + '" target="_blank" class="attachment-link">📄 [文件] 点击下载</a>';
               }
@@ -645,17 +658,11 @@ export const FRONTEND_HTML = `
         '</div>';
       }).join('');
       
-      // 👇 修复滚动逻辑：只有在切换会话首次加载，或者用户本来就在底部时，才执行滚动
-      if (!isPush || isNearBottom) {
+      // 渲染后，如果原来在底部，或者这是一个新加载的会话，才执行滚动
+      if (!isPush || isNear) {
         window.scrollToBottom(false);
-        
-        // 使用延时器确保图片撑开高度后，依然能滚到底部
-        setTimeout(() => {
-          if (!isPush || isNearBottom) window.scrollToBottom(false);
-        }, 100);
-        setTimeout(() => {
-          if (!isPush || isNearBottom) window.scrollToBottom(false);
-        }, 300);
+        setTimeout(() => { if (!isPush || isNear) window.scrollToBottom(false); }, 100);
+        setTimeout(() => { if (!isPush || isNear) window.scrollToBottom(false); }, 300);
       }
     }
 
