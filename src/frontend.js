@@ -143,10 +143,21 @@ export const FRONTEND_HTML = `
       body { background: #121212; color: #e0e0e0; }
       #js-error-layer { background: #121212; }
       #js-error-layer pre { background: #2a2a2a; color: #ff7875;}
+      
       #loading-page, #login-page { background: #121212; }
       .login-box { background: #1e1e1e; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
       .login-box h2 { color: #fff; }
-      .login-box input { background: #2a2a2a; border-color: #333; color: #fff; }
+      /* 👇 修复：强制覆盖密码输入框在暗黑模式下的样式和自动填充颜色 */
+      .login-box input { 
+        background: #2a2a2a !important; 
+        border-color: #333 !important; 
+        color: #fff !important; 
+        -webkit-text-fill-color: #fff !important; 
+        box-shadow: 0 0 0 1000px #2a2a2a inset !important; 
+        caret-color: #1890ff;
+      }
+      .login-box input:focus { border-color: #1890ff !important; }
+      
       #app { background: #121212; }
       .sidebar { background: #1e1e1e; border-color: #333; }
       .sidebar-header, .chat-header, .mobile-header, .input-area { background: #1e1e1e; border-color: #333; color: #e0e0e0; }
@@ -166,7 +177,7 @@ export const FRONTEND_HTML = `
       .modal-box { background: #1e1e1e; border: 1px solid #333; }
       .modal-title { color: #fff; }
       .modal-content { color: #aaa; }
-      .modal-input { background: #2a2a2a; border-color: #333; color: #fff; }
+      .modal-input { background: #2a2a2a; border-color: #333; color: #fff; -webkit-text-fill-color: #fff; }
       .modal-btn.cancel { background: #333; color: #e0e0e0; }
       .mute-status-box { background: #2a2a2a; border-color: #333; }
       .quote-box { background: rgba(255,255,255,0.1); color: #aaa; }
@@ -196,7 +207,8 @@ export const FRONTEND_HTML = `
   <div id="login-page">
     <div class="login-box">
       <h2>🤖 MsgBot</h2>
-      <input type="password" id="pwd" placeholder="请输入登录密码" onkeypress="if(event.key==='Enter') login()">
+      <!-- 👇 加上 autocomplete 属性防止浏览器过度干预 -->
+      <input type="password" id="pwd" placeholder="请输入登录密码" autocomplete="current-password" onkeypress="if(event.key==='Enter') login()">
       <button onclick="login()">立即登录</button>
     </div>
   </div>
@@ -279,7 +291,6 @@ export const FRONTEND_HTML = `
       return res;
     };
 
-    // 👇 抽离滚动函数，防止内联转义引发语法崩溃
     window.scrollToBottom = function(smooth = false) {
       const msgEl = document.getElementById('messages');
       if (msgEl) {
@@ -586,7 +597,6 @@ export const FRONTEND_HTML = `
       if (msgEl.dataset.lastMsgId === lastMsgId) return; 
       msgEl.dataset.lastMsgId = lastMsgId;
 
-      // 在修改 DOM 之前，判断用户当前是否在底部
       const isNear = window.isNearBottom();
 
       currentMsgs = msgs;
@@ -630,7 +640,6 @@ export const FRONTEND_HTML = `
               if (att.error) {
                 attHtml += '<div><span class="attachment-error">[' + escapeHTML(att.error) + ']</span></div>';
               } else if (att.content_type && att.content_type.startsWith('image/')) {
-                // 👇 修复：调用外部全局函数，避免长内联 JS 引发语法崩溃
                 attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onload="handleImgLoad()" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
               } else {
                 attHtml += '<a href="' + escapeHTML(att.url) + '" target="_blank" class="attachment-link">📄 [文件] 点击下载</a>';
@@ -658,7 +667,6 @@ export const FRONTEND_HTML = `
         '</div>';
       }).join('');
       
-      // 渲染后，如果原来在底部，或者这是一个新加载的会话，才执行滚动
       if (!isPush || isNear) {
         window.scrollToBottom(false);
         setTimeout(() => { if (!isPush || isNear) window.scrollToBottom(false); }, 100);
