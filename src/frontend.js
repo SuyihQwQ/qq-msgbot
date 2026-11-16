@@ -39,15 +39,15 @@ export const FRONTEND_HTML = `
 
     .sidebar { width: 320px; background: #f7f9fa; border-right: 1px solid #e8e8e8; display: flex; flex-direction: column; transition: transform 0.3s ease; flex-shrink: 0; z-index: 100; height: 100%;}
     .session-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px; }
-    .session-item { padding: 12px 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 5px; background: #fff; border: 1px solid transparent; display: flex; flex-direction: column;}
+    .session-item { padding: 12px 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 5px; background: #fff; border: 1px solid transparent;}
     .session-item:hover, .session-item.active { background: #e6f7ff; border-color: #91d5ff;}
-    
-    .session-name { font-weight: 600; margin-bottom: 4px; font-size: 14px; color: #333; padding-right: 30px;}
-    .session-id { font-size: 10px; color: #888; margin-bottom: 6px; word-break: break-all; line-height: 1.3;}
+    .session-name { font-weight: 600; margin-bottom: 4px; font-size: 14px; color: #333; padding-right: 30px; display: flex; align-items: center; gap: 6px;}
+    .session-id { font-size: 10px; color: #888; margin-bottom: 6px; word-break: break-all; line-height: 1.3; display: flex; align-items: flex-start; gap: 4px;}
+    .session-id span.full-id { color: #1890ff; text-decoration: underline; font-weight: 500; cursor: pointer;}
     .session-preview { font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    
     .delete-session-btn { position: absolute; right: 10px; top: 12px; font-size: 14px; cursor: pointer; opacity: 0; transition: opacity 0.2s; color: #ff4d4f; padding: 4px;}
     .session-item:hover .delete-session-btn { opacity: 1; }
+    .session-item.active { background: #e6f7ff; border-left: 4px solid #1890ff; padding-left: 11px;}
 
     .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; opacity: 0; transition: opacity 0.3s;}
 
@@ -65,7 +65,7 @@ export const FRONTEND_HTML = `
     .msg-author:hover { opacity: 0.7; }
     .msg-author.bot-author { color: #1890ff; }
     
-    .avatar-circle { width: 18px; height: 18px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;}
+    .avatar-circle { width: 16px; height: 16px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;}
     .avatar-circle.bot-avatar { background: #1890ff; font-family: Arial, sans-serif; }
     
     .msg-bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-wrap: break-word; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);}
@@ -74,7 +74,6 @@ export const FRONTEND_HTML = `
     
     .msg.system { align-self: center; align-items: center; max-width: 90%; margin: 15px 0;}
     .msg-system-text { font-size: 12px; color: #888; background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 12px; text-align: center; }
-    
     .quote-box { background: rgba(0,0,0,0.04); border-left: 3px solid #ccc; padding: 6px 10px; margin-bottom: 10px; font-size: 12px; color: #666; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     .msg.outgoing .quote-box { background: rgba(255,255,255,0.15); border-left-color: #fff; color: rgba(255,255,255,0.85); }
 
@@ -126,10 +125,6 @@ export const FRONTEND_HTML = `
     .mute-chip { padding: 6px 12px; background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; border-radius: 16px; font-size: 13px; cursor: pointer;}
     .mute-chip.active { background: #1890ff; color: #fff; }
 
-    /* 邮件映射配置面板样式 */
-    .email-rule-item { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #e8e8e8; font-size: 13px;}
-    .email-rule-item .email-text { font-weight: bold; color: #1890ff; word-break: break-all;}
-
     @media (max-width: 768px) {
       #app { flex-direction: column; }
       .mobile-header { display: flex; }
@@ -148,10 +143,13 @@ export const FRONTEND_HTML = `
       body { background: #121212; color: #e0e0e0; }
       #js-error-layer { background: #121212; }
       #js-error-layer pre { background: #2a2a2a; color: #ff7875;}
+      
       #loading-page, #login-page { background: #121212; }
       .login-box { background: #1e1e1e; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
       .login-box h2 { color: #fff; }
-      .login-box input { background: #2a2a2a !important; border-color: #333 !important; color: #fff !important; -webkit-text-fill-color: #fff !important; box-shadow: 0 0 0 1000px #2a2a2a inset !important; }
+      .login-box input { background: #2a2a2a !important; border-color: #333 !important; color: #fff !important; -webkit-text-fill-color: #fff !important; box-shadow: 0 0 0 1000px #2a2a2a inset !important; caret-color: #1890ff;}
+      .login-box input:focus { border-color: #1890ff !important; }
+      
       #app { background: #121212; }
       .sidebar { background: #1e1e1e; border-color: #333; }
       .sidebar-header, .chat-header, .mobile-header, .input-area { background: #1e1e1e; border-color: #333; color: #e0e0e0; }
@@ -160,6 +158,7 @@ export const FRONTEND_HTML = `
       .session-item:hover, .session-item.active { background: #1a3b5c; border-color: #1890ff; }
       .session-name { color: #e0e0e0; }
       .session-id { color: #888; }
+      .session-id span.full-id { color: #40a9ff; }
       .chat-area { background: #121212; }
       .msg.incoming .msg-bubble { background: #2a2a2a; color: #e0e0e0; border-color: #333; }
       .msg-meta { color: #888; }
@@ -172,7 +171,7 @@ export const FRONTEND_HTML = `
       .modal-content { color: #aaa; }
       .modal-input { background: #2a2a2a; border-color: #333; color: #fff; -webkit-text-fill-color: #fff; }
       .modal-btn.cancel { background: #333; color: #e0e0e0; }
-      .mute-status-box, .email-rule-item { background: #2a2a2a; border-color: #333; }
+      .mute-status-box { background: #2a2a2a; border-color: #333; }
       .quote-box { background: rgba(255,255,255,0.1); color: #aaa; }
       .reply-tip { background: #3b3214; border-color: #5a4a1a; color: #e6a23c; }
     }
@@ -223,9 +222,9 @@ export const FRONTEND_HTML = `
       <div class="chat-header">
         <span id="chat-title">请选择左侧会话</span>
         <span style="display:flex; align-items:center; gap:10px;">
-          <button class="action-btn" onclick="openEmailSettings()" title="邮件转发配置" style="background:#f0f2f5; border:none;">📧 邮件转发</button>
           <span style="font-size: 12px; color: #888; font-weight: normal;">模式: <span id="mode-label">主动</span></span>
-          <span style="cursor:pointer; font-size:18px;" onclick="openBotSettings()" title="设置 Bot ID">⚙️</span>
+          <span style="cursor:pointer; font-size:16px;" onclick="openBotSettings()" title="Bot 设置">⚙️</span>
+          <span style="cursor:pointer; font-size:16px;" onclick="openEmailSettings()" title="邮件转发设置">📧</span>
         </span>
       </div>
       
@@ -267,7 +266,6 @@ export const FRONTEND_HTML = `
     let sessionsData = [];
     let currentMsgs = [];
     let idMap = {}; 
-    let emailRules = [];
     let ws = null;
     
     let replyBaseTime = 0;
@@ -288,8 +286,11 @@ export const FRONTEND_HTML = `
     window.scrollToBottom = function(smooth = false) {
       const msgEl = document.getElementById('messages');
       if (msgEl) {
-        if (smooth) msgEl.scrollTo({ top: msgEl.scrollHeight, behavior: 'smooth' });
-        else msgEl.scrollTop = msgEl.scrollHeight;
+        if (smooth) {
+          msgEl.scrollTo({ top: msgEl.scrollHeight, behavior: 'smooth' });
+        } else {
+          msgEl.scrollTop = msgEl.scrollHeight;
+        }
       }
     };
 
@@ -300,25 +301,21 @@ export const FRONTEND_HTML = `
     };
 
     window.handleImgLoad = function() {
-      if (window.isNearBottom()) window.scrollToBottom(false);
+      if (window.isNearBottom()) {
+        window.scrollToBottom(false);
+      }
     };
 
-    // 获取基于备注/ID 的显示名称与头像首字母
-    function formatDisplayInfo(id, isGroup = false, isBot = false) {
-      let name = '';
-      if (idMap[id]) name = idMap[id];
-      else if (isBot) name = myBotId ? 'Bot_' + (myBotId.length > 4 ? myBotId.slice(-4) : myBotId) : 'Bot';
-      else if (!id || id === '未知用户') name = '用户_未知';
-      else name = (isGroup ? '群聊_' : '用户_') + (id.length > 4 ? id.slice(-4) : id);
-
-      // 提取首字母（如果是 Bot 强制 A，否则取首字）
-      let char = 'U';
-      if (isBot) char = 'A';
-      else if (name && name.trim().length > 0) {
-        char = name.trim().charAt(0).toUpperCase();
-        // 如果首字是汉字，就保留汉字
+    function formatName(id, isGroup = false, isBot = false) {
+      if (idMap[id]) return idMap[id];
+      if (isBot) {
+        if (!myBotId) return 'Bot';
+        return 'Bot_' + (myBotId.length > 4 ? myBotId.slice(-4) : myBotId);
       }
-      return { name, char };
+      if (!id || id === '未知用户') return '用户_未知';
+      const suffix = id.length > 4 ? id.slice(-4) : id;
+      if (isGroup) return '群聊_' + suffix;
+      return '用户_' + suffix;
     }
 
     function getColor(id) {
@@ -337,7 +334,7 @@ export const FRONTEND_HTML = `
     }
 
     async function openBotSettings() {
-      const html = '<div style="margin-bottom:15px;font-size:13px;color:#888;">请填入机器人的真实 OpenID。</div>' +
+      const html = '<div style="margin-bottom:15px;font-size:13px;color:#888;">请填入机器人的真实 OpenID，用于在聊天区识别和显示。</div>' +
                    '<input type="text" id="bot-id-input" class="modal-input" value="' + escapeHTML(myBotId) + '" placeholder="填写 Bot 的 OpenID">';
       
       const confirm = await showModal({
@@ -347,74 +344,72 @@ export const FRONTEND_HTML = `
       });
       
       if (!confirm) return;
-      myBotId = document.getElementById('bot-id-input').value.trim();
+      const newId = document.getElementById('bot-id-input').value.trim();
+      myBotId = newId;
       localStorage.setItem('custom_bot_id', myBotId);
       showToast('Bot 设置已保存', 'success');
       if (currentSession) loadMessages(currentSession.id, false);
     }
 
-    // 👇 邮件转发设置
     async function openEmailSettings() {
-      const html = '<div style="font-size:13px;color:#888;margin-bottom:15px;">在此配置 Cloudflare Email Routing 接收到的邮件映射。当邮件发往左侧地址时，会自动转发到对应 QQ 会话。</div>' +
-                   '<div style="max-height:150px; overflow-y:auto; margin-bottom:15px;">' +
-                   (emailRules.length === 0 ? '<div style="color:#999;text-align:center;">暂无转发规则</div>' : '') +
-                   emailRules.map(r => 
-                     '<div class="email-rule-item"><div><div class="email-text">' + escapeHTML(r.email) + '</div><div style="color:#888;font-size:11px;">目标: ' + escapeHTML(r.session_id.substring(0,8)) + '...</div></div><button class="action-btn danger" onclick="deleteEmailRule(' + r.id + ')" style="padding:4px 8px;">删除</button></div>'
-                   ).join('') +
-                   '</div>' +
-                   '<input type="text" id="email-addr" class="modal-input" placeholder="接收邮箱地址 (例如 bot@abc.com)">' +
-                   '<select id="email-session" class="modal-input">' +
-                   '<option value="">-- 选择要转发到的会话 --</option>' +
-                   sessionsData.map(s => {
-                     const info = formatDisplayInfo(s.id, s.is_group === 1);
-                     return '<option value="' + s.id + '|' + s.is_group + '">' + (s.is_group ? '群聊: ' : '私聊: ') + escapeHTML(info.name) + '</option>';
-                   }).join('') +
-                   '</select>';
-
-      const action = await showModal({
-        title: '邮件转发配置',
-        html: html,
-        buttons: [
-          { text: '关闭', value: 'close', type: 'cancel' },
-          { text: '添加规则', value: 'add', type: 'confirm' }
-        ]
-      });
-
-      if (action === 'close') return;
-      
-      const newEmail = document.getElementById('email-addr').value.trim();
-      const sessionVal = document.getElementById('email-session').value;
-      if (!newEmail || !sessionVal) return showToast('请填写邮箱并选择会话', 'error');
-
-      const [sessionId, isGroup] = sessionVal.split('|');
       try {
-        await fetch('/api/email_mapping', {
-          method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: newEmail, session_id: sessionId, is_group: isGroup === '1' })
+        const res = await fetch('/api/email_rules', { headers: { 'Authorization': 'Bearer ' + token } });
+        const rules = await res.json();
+        
+        let html = '<div style="margin-bottom:15px;font-size:13px;color:#888;">配置邮件转发规则。发往左侧邮箱的邮件将转发到指定会话。</div>';
+        html += '<div style="max-height:200px; overflow-y:auto; margin-bottom:15px;">';
+        if (rules.length === 0) html += '<div style="color:#999;text-align:center;">暂无规则</div>';
+        rules.forEach(r => {
+          html += '<div style="display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid #eee;">' +
+            '<span>' + escapeHTML(r.email_address) + '</span>' +
+            '<span style="color:#1890ff">→ ' + escapeHTML(r.session_name || r.session_id) + '</span>' +
+            '<span style="cursor:pointer;color:#ff4d4f;" onclick="deleteEmailRule(' + r.id + ')">删除</span>' +
+            '</div>';
         });
-        showToast('规则添加成功', 'success');
-        await loadEmailRules();
-        openEmailSettings(); // 重新打开刷新界面
+        html += '</div>';
+        
+        html += '<div style="border-top:1px solid #eee;padding-top:15px;">' +
+          '<input type="text" id="new-email" class="modal-input" placeholder="填写收件邮箱 (如 bot@yourdomain.com)">' +
+          '<select id="new-email-session" class="modal-input">';
+        sessionsData.forEach(s => {
+          html += '<option value="' + s.id + '">' + (s.is_group ? '群聊' : '私聊') + ' - ' + formatName(s.id, s.is_group) + '</option>';
+        });
+        html += '</select>' +
+          '<button class="modal-btn confirm" style="width:100%" onclick="addEmailRule()">添加规则</button>' +
+          '</div>';
+          
+        showModal({ title: '邮件转发设置', html: html, buttons: [{ text: '关闭', value: true, type: 'cancel' }] });
       } catch (e) {
-        showToast('添加失败', 'error');
+        showToast('加载规则失败', 'error');
       }
     }
 
-    window.deleteEmailRule = async function(id) {
-      if (!confirm('确定删除该规则？')) return;
+    window.addEmailRule = async function() {
+      const email = document.getElementById('new-email').value.trim();
+      const sessionId = document.getElementById('new-email-session').value;
+      if (!email || !sessionId) return showToast('请填写邮箱并选择会话', 'error');
+      
       try {
-        await fetch('/api/email_mapping?id=' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
-        showToast('已删除', 'success');
-        await loadEmailRules();
+        await fetch('/api/email_rule', {
+          method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, sessionId })
+        });
+        showToast('添加成功', 'success');
         openEmailSettings();
-      } catch (e) { showToast('删除失败', 'error'); }
+      } catch (e) {
+        showToast('添加失败', 'error');
+      }
     };
 
-    async function loadEmailRules() {
-      const res = await fetch('/api/email_mappings', { headers: { 'Authorization': 'Bearer ' + token } });
-      const data = await res.json();
-      if (Array.isArray(data)) emailRules = data;
-    }
+    window.deleteEmailRule = async function(id) {
+      try {
+        await fetch('/api/email_rule/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+        showToast('删除成功', 'success');
+        openEmailSettings();
+      } catch (e) {
+        showToast('删除失败', 'error');
+      }
+    };
 
     async function loadMappings() {
       try {
@@ -427,7 +422,6 @@ export const FRONTEND_HTML = `
       } catch (e) {}
     }
 
-    // 👇 修改备注逻辑，即时刷新界面
     async function editSessionMapping(index, event) {
       if (event) event.stopPropagation();
       const id = sessionsData[index].id;
@@ -445,8 +439,7 @@ export const FRONTEND_HTML = `
     async function showMappingDialog(id) {
       if (!id || id === '未知用户') return;
       
-      const info = formatDisplayInfo(id, false, id === myBotId);
-      const currentName = info.name;
+      const currentName = idMap[id] || formatName(id, false, id === myBotId);
       const html = '<div style="margin-bottom:15px;font-size:13px;color:#888;word-break:break-all;">ID: ' + escapeHTML(id) + '</div>' +
                    '<input type="text" id="mapping-input" class="modal-input" value="' + escapeHTML(currentName) + '" placeholder="输入备注昵称">';
       
@@ -458,22 +451,25 @@ export const FRONTEND_HTML = `
       
       if (!confirm) return;
       const newName = document.getElementById('mapping-input').value.trim();
-      if (!newName) return;
+      if (!newName || newName === currentName) return;
       
       try {
         await fetch('/api/mapping', {
           method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, nickname: newName })
         });
-        idMap[id] = newName; // 本地更新
+        idMap[id] = newName;
         showToast('备注已更新', 'success');
         
-        // 👇 核心：立刻局部刷新
-        await loadSessions();
-        if (currentSession) {
-          document.getElementById('messages').dataset.lastMsgId = '';
-          await loadMessages(currentSession.id, false);
-        }
+        // 👇 修复：直接更新 DOM，不需要刷新
+        document.querySelectorAll('[data-author-id="' + id + '"]').forEach(el => {
+          const authorChar = newName.charAt(0) || 'U';
+          const color = getColor(id);
+          el.innerHTML = '<div class="avatar-circle ' + (id === myBotId ? 'bot-avatar' : '') + '" style="background: ' + (id === myBotId ? '' : color) + ';">' + authorChar + '</div> ' + escapeHTML(newName);
+        });
+
+        // 更新左侧列表
+        loadSessions(); 
       } catch (e) {
         showToast('设置失败', 'error');
       }
@@ -539,7 +535,6 @@ export const FRONTEND_HTML = `
         
         if (isTokenValid()) {
           await loadMappings();
-          await loadEmailRules();
           showApp();
         } else {
           document.getElementById('login-page').style.display = 'flex';
@@ -563,7 +558,6 @@ export const FRONTEND_HTML = `
         localStorage.setItem('bot_expires_at', expiresAt.toString());
         document.getElementById('login-page').style.display = 'none';
         await loadMappings();
-        await loadEmailRules();
         showApp();
       } else showToast(data.error || '密码错误', 'error');
     }
@@ -597,19 +591,23 @@ export const FRONTEND_HTML = `
       if (res.status === 401) return;
       sessionsData = await res.json();
       
-      if (!Array.isArray(sessionsData)) return showToast('获取会话失败', 'error');
+      if (!Array.isArray(sessionsData)) {
+        return showToast('获取会话失败', 'error');
+      }
 
       const listEl = document.getElementById('session-list');
       listEl.innerHTML = sessionsData.map((s, i) => {
-        const info = formatDisplayInfo(s.id, s.is_group === 1);
-        
-        // 👇 核心：整张卡片绑定点击事件，直接弹修改备注
-        return '<div class="session-item ' + (currentSession?.id === s.id ? 'active' : '') + '" onclick="editSessionMapping(' + i + ', event)">' +
-               '<div class="session-name" style="pointer-events: none;">' + (s.is_group ? '👥 ' : '👤 ') + escapeHTML(info.name) + '</div>' +
-               '<div class="session-id" style="pointer-events: none;">' +
+        const displayName = formatName(s.id, s.is_group === 1);
+        return '<div class="session-item ' + (currentSession?.id === s.id ? 'active' : '') + '" onclick="selectSession(' + i + ')">' +
+               // 👇 整个名字行都可以点击弹窗改名，右侧留空
+               '<div class="session-name" onclick="event.stopPropagation(); editSessionMapping(' + i + ', event)" style="width:100%; display:flex; align-items:center;">' +
+                 '<span>' + (s.is_group ? '👥 ' : '👤 ') + displayName + '</span>' +
+                 '<div style="flex:1; min-height:20px; cursor:pointer;"></div>' +
+               '</div>' +
+               '<div class="session-id" onclick="event.stopPropagation();">' +
                '<span class="full-id">' + escapeHTML(s.id) + '</span>' +
                '</div>' +
-               '<div class="session-preview" style="pointer-events: none;">' + escapeHTML(s.last_message || '暂无消息') + '</div>' +
+               '<div class="session-preview">' + escapeHTML(s.last_message || '暂无消息') + '</div>' +
                '<span class="delete-session-btn" onclick="event.stopPropagation(); deleteSession(' + i + ')">🗑️</span>' +
                '</div>';
       }).join('');
@@ -622,8 +620,7 @@ export const FRONTEND_HTML = `
         return;
       }
       currentSession = sessionsData[index];
-      const info = formatDisplayInfo(id, currentSession.is_group === 1);
-      const shortTitle = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' (' + info.name + ')';
+      const shortTitle = (currentSession.is_group ? '👥 群聊' : '👤 私聊') + ' (' + formatName(id, currentSession.is_group === 1) + ')';
       document.getElementById('chat-title').innerText = shortTitle;
       document.getElementById('mobile-title').innerText = shortTitle;
       
@@ -654,7 +651,10 @@ export const FRONTEND_HTML = `
       const msgs = await res.json();
       
       if (sessionId !== currentSession.id) return;
-      if (!Array.isArray(msgs)) return showToast('获取消息失败', 'error');
+
+      if (!Array.isArray(msgs)) {
+        return showToast('获取消息失败: ' + (msgs.error || '未知错误'), 'error');
+      }
 
       const msgEl = document.getElementById('messages');
       const lastMsgId = msgs.length > 0 ? msgs[msgs.length - 1].msg_id : 'empty';
@@ -662,36 +662,44 @@ export const FRONTEND_HTML = `
       msgEl.dataset.lastMsgId = lastMsgId;
 
       const isNear = window.isNearBottom();
+
       currentMsgs = msgs;
 
       const now = Date.now();
       msgEl.innerHTML = msgs.map((m, i) => {
-        if (m.type === 'system') return '<div class="msg system"><div class="msg-system-text">' + escapeHTML(m.content) + '</div></div>';
+        if (m.type === 'system') {
+          return '<div class="msg system"><div class="msg-system-text">' + escapeHTML(m.content) + '</div></div>';
+        }
 
         const isOut = m.type === 'outgoing';
         const isGroup = currentSession.is_group === 1;
         const isWithin2Mins = (now - m.timestamp) < 2 * 60 * 1000;
         const isWithin5Mins = (now - m.timestamp) < 5 * 60 * 1000;
+        
         const showRecallBtn = (isOut && isWithin2Mins) || (!isOut && isGroup && isWithin2Mins);
         const showReplyBtn = !isOut && isWithin5Mins;
         const showGroupOps = !isOut && isGroup;
 
-        const rawAuthorName = isOut ? (myBotId || 'Bot') : (m.author_name || '未知用户');
-        const info = formatDisplayInfo(rawAuthorName, isGroup, isOut);
-        const color = isOut ? '#1890ff' : getColor(rawAuthorName);
-
-        // 👇 核心：判断是否有人 @ 了 Bot
-        const isMentioned = !isOut && myBotId && (m.content || '').includes(`<@!${myBotId}>`) || (m.content || '').includes(`<@${myBotId}>`);
-        const mentionHtml = isMentioned ? '<div style="font-size:12px; color:#fa8c16; margin-bottom:6px; display:flex; align-items:center; gap:4px; font-weight:bold;">🔔 有人@你</div>' : '';
-
+        let rawAuthorName = isOut ? (myBotId || 'Bot') : (m.author_name || '未知用户');
+        let authorChar = idMap[rawAuthorName] ? idMap[rawAuthorName].charAt(0) : (isOut ? 'A' : (rawAuthorName.slice(-2, -1) || 'U'));
+        let displayName = idMap[rawAuthorName] || (isOut ? formatName(myBotId, isGroup, true) : formatName(rawAuthorName, false));
+        let color = getColor(rawAuthorName);
+        
+        // 👇 有人 @ 你提醒
+        let isAtMe = false;
+        if (!isOut && myBotId && m.content && m.content.includes('@' + myBotId)) {
+          isAtMe = true;
+        }
+        let atMeHtml = isAtMe ? '<div style="font-size:12px; color:#ff4d4f; margin-bottom:4px; font-weight:bold;">[有人@你]</div>' : '';
+        
         let authorHtml = '';
         if (isOut) {
-          authorHtml = '<div class="msg-author bot-author" onclick="editMsgMapping(' + i + ', event)">' +
-            '<div class="avatar-circle bot-avatar">' + info.char + '</div> ' + info.name +
+          authorHtml = '<div class="msg-author bot-author" data-author-id="' + escapeHTML(rawAuthorName) + '" title="点击设置备注" onclick="editMsgMapping(' + i + ', event)">' +
+            '<div class="avatar-circle bot-avatar">' + authorChar + '</div> ' + displayName +
           '</div>';
         } else {
-          authorHtml = '<div class="msg-author" onclick="editMsgMapping(' + i + ', event)">' +
-            '<div class="avatar-circle" style="background: ' + color + ';">' + info.char + '</div> ' + info.name +
+          authorHtml = '<div class="msg-author" data-author-id="' + escapeHTML(rawAuthorName) + '" title="点击设置备注" onclick="editMsgMapping(' + i + ', event)">' +
+            '<div class="avatar-circle" style="background: ' + color + ';">' + authorChar + '</div> ' + displayName +
           '</div>';
         }
 
@@ -701,15 +709,19 @@ export const FRONTEND_HTML = `
         if (m.attachments) {
           try {
             JSON.parse(m.attachments).forEach(att => {
-              if (att.error) attHtml += '<div><span class="attachment-error">[' + escapeHTML(att.error) + ']</span></div>';
-              else if (att.content_type && att.content_type.startsWith('image/')) attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onload="handleImgLoad()" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
-              else attHtml += '<a href="' + escapeHTML(att.url) + '" target="_blank" class="attachment-link">📄 [文件] 点击下载</a>';
+              if (att.error) {
+                attHtml += '<div><span class="attachment-error">[' + escapeHTML(att.error) + ']</span></div>';
+              } else if (att.content_type && att.content_type.startsWith('image/')) {
+                attHtml += '<img src="' + escapeHTML(att.url) + '" class="chat-img" onload="handleImgLoad()" onerror="handleImgError(this)" onclick="window.open(this.src)" />';
+              } else {
+                attHtml += '<a href="' + escapeHTML(att.url) + '" target="_blank" class="attachment-link">📄 [文件] 点击下载</a>';
+              }
             });
           } catch (e) {}
         }
 
         return '<div class="msg ' + (isOut ? 'outgoing' : 'incoming') + '">' +
-          mentionHtml +
+          atMeHtml +
           authorHtml +
           '<div class="msg-bubble">' +
             quoteHtml +
@@ -735,36 +747,71 @@ export const FRONTEND_HTML = `
       }
     }
 
-    // ... (省略部分不影响核心的API操作函数，例如 recallMessage、kickMember、禁言面板 等，逻辑与之前版本保持一致)
-    // 由于限制字数，保证核心功能，若你需要这些完整函数，直接在保留原有基础上替换此文件即可
-
     async function openMutePanel(index) {
       const memberOpenid = currentMsgs[index].author_name;
-      const loadingHtml = '<div class="mute-status-box"><div class="mute-status-text" style="color:#1890ff">正在查询禁言状态...</div></div><div class="modal-btns"><button class="modal-btn cancel" onclick="closeModal()">关闭</button></div>';
-      showModal({ title: '管理成员: ' + formatDisplayInfo(memberOpenid).name, html: loadingHtml, buttons: [] });
+      const loadingHtml = '<div class="mute-status-box">' +
+          '<div class="mute-status-text" style="color:#1890ff">正在查询禁言状态...</div>' +
+        '</div>' +
+        '<div class="modal-btns"><button class="modal-btn cancel" onclick="closeModal()">关闭</button></div>';
+      
+      showModal({ title: '管理成员: ' + formatName(memberOpenid), html: loadingHtml, buttons: [] });
+
       try {
-        const res = await fetch('/api/mute_status?group_id=' + currentSession.id + '&member_id=' + memberOpenid, { headers: { 'Authorization': 'Bearer ' + token } });
+        const res = await fetch('/api/mute_status?group_id=' + currentSession.id + '&member_id=' + memberOpenid, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '查询失败');
+
         let statusHtml = '';
         let btns = [{ text: '关闭', value: null, type: 'cancel' }];
+
         if (data.isMuted) {
-          statusHtml = '<div class="mute-status-box"><div class="mute-status-text" style="color:#ff4d4f">🔇 当前状态：已禁言</div><div class="mute-status-desc">到期时间：' + new Date(data.expireAt).toLocaleString() + '</div></div>';
+          statusHtml = '<div class="mute-status-box">' +
+              '<div class="mute-status-text" style="color:#ff4d4f">🔇 当前状态：已禁言</div>' +
+              '<div class="mute-status-desc">到期时间：' + new Date(data.expireAt).toLocaleString() + '</div>' +
+            '</div>';
           btns.unshift({ text: '解除禁言', value: 'unmute', type: 'success' });
         } else {
-          statusHtml = '<div class="mute-status-box"><div class="mute-status-text" style="color:#52c41a">🔊 当前状态：未禁言</div></div><div style="margin-bottom: 10px; font-size: 14px;">选择禁言时长：</div><div class="mute-actions"><div class="mute-chip" onclick="selectMuteTime(this, 10)">10分钟</div><div class="mute-chip" onclick="selectMuteTime(this, 60)">1小时</div><div class="mute-chip" onclick="selectMuteTime(this, 1440)">1天</div></div><input type="number" id="custom-mute-mins" class="modal-input" placeholder="自定义分钟数" style="margin-top:10px;">';
+          statusHtml = '<div class="mute-status-box">' +
+              '<div class="mute-status-text" style="color:#52c41a">🔊 当前状态：未禁言</div>' +
+            '</div>' +
+            '<div style="margin-bottom: 10px; font-size: 14px;">选择禁言时长：</div>' +
+            '<div class="mute-actions">' +
+              '<div class="mute-chip" onclick="selectMuteTime(this, 10)">10分钟</div>' +
+              '<div class="mute-chip" onclick="selectMuteTime(this, 60)">1小时</div>' +
+              '<div class="mute-chip" onclick="selectMuteTime(this, 1440)">1天</div>' +
+            '</div>' +
+            '<input type="number" id="custom-mute-mins" class="modal-input" placeholder="自定义分钟数" style="margin-top:10px;">';
           btns.unshift({ text: '确认禁言', value: 'mute', type: 'danger' });
         }
-        const action = await showModal({ title: '成员: ' + formatDisplayInfo(memberOpenid).name, html: statusHtml, buttons: btns });
+
+        const action = await showModal({ title: '成员: ' + formatName(memberOpenid), html: statusHtml, buttons: btns });
+
         if (action === 'unmute') {
-          await fetch('/api/unmute', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid }) });
-          showToast('解除禁言成功', 'success');
+          const req = await fetch('/api/unmute', {
+            method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid })
+          });
+          if (req.ok) showToast('解除禁言成功', 'success');
+          else showToast('解除禁言失败', 'error');
         } else if (action === 'mute') {
-          let mins = parseInt(document.getElementById('custom-mute-mins').value) || 10;
-          await fetch('/api/mute', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid, durationMins: mins }) });
-          showToast('禁言成功', 'success');
+          let mins = parseInt(document.getElementById('custom-mute-mins').value);
+          const activeChip = document.querySelector('.mute-chip.active');
+          if (!mins && activeChip) mins = parseInt(activeChip.dataset.mins);
+          
+          if (!mins || mins <= 0) return showToast('请输入或选择有效的时长', 'error');
+
+          const req = await fetch('/api/mute', {
+            method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid, durationMins: mins })
+          });
+          if (req.ok) showToast('禁言成功', 'success');
+          else showToast('禁言失败', 'error');
         }
-      } catch (err) { showToast(err.message, 'error'); }
+      } catch (err) {
+        showModal({ title: '错误', html: '<div style="color:red;margin-bottom:15px">' + err.message + '</div>', buttons: [{ text: '关闭', value: null, type: 'cancel' }] });
+      }
     }
 
     window.selectMuteTime = function(el, mins) {
@@ -786,72 +833,137 @@ export const FRONTEND_HTML = `
       const label = document.getElementById('mode-label');
       const btn = document.getElementById('toggle-mode-btn');
       const tipText = document.getElementById('tip-text');
+      
       if (replyTimeoutTimer) clearInterval(replyTimeoutTimer);
+
       if (replyToMsg) {
-        label.innerText = '被动'; label.style.color = '#52c41a'; btn.innerText = '转为主动';
+        label.innerText = '被动';
+        label.style.color = '#52c41a';
+        btn.innerText = '转为主动';
+        
         const expireTime = Number(replyBaseTime) + 5 * 60 * 1000;
+        
         replyTimeoutTimer = setInterval(() => {
           const remaining = expireTime - Date.now();
-          if (remaining <= 0) { clearInterval(replyTimeoutTimer); cancelReply(); showToast('被动回复已超时', 'error'); }
-          else {
+          if (remaining <= 0) {
+            clearInterval(replyTimeoutTimer);
+            cancelReply();
+            showToast('被动回复已超时（发出已超5分钟），自动转为主动模式', 'error');
+          } else {
             const mins = Math.floor(remaining / 60000);
             const secs = Math.floor((remaining % 60000) / 1000);
-            tipText.innerText = (quoteToMsg ? '正在引用...' : '正在被动回复...') + ' (剩余 ' + mins + '分' + secs + '秒)';
+            const timeStr = mins + '分' + secs.toString().padStart(2, '0') + '秒';
+            const originalText = quoteToMsg ? '正在引用: ' + (quoteToMsg.content || '[非文本]').substring(0, 10) + '...' : '正在被动回复...';
+            tipText.innerText = originalText + ' (剩余 ' + timeStr + ')';
           }
         }, 1000);
+
+        const remaining = expireTime - Date.now();
+        const mins = Math.floor(remaining / 60000);
+        const secs = Math.floor((remaining % 60000) / 1000);
+        const timeStr = mins + '分' + secs.toString().padStart(2, '0') + '秒';
+        const originalText = quoteToMsg ? '正在引用: ' + (quoteToMsg.content || '[非文本]').substring(0, 10) + '...' : '正在被动回复...';
+        tipText.innerText = originalText + ' (剩余 ' + timeStr + ')';
+
       } else {
-        label.innerText = '主动'; label.style.color = '#fa8c16'; btn.innerText = '需要被动？去点消息回复';
-        tipText.innerText = quoteToMsg ? '正在主动引用...' : '正在主动发送...';
+        label.innerText = '主动';
+        label.style.color = '#fa8c16';
+        btn.innerText = '需要被动？去点消息回复';
+        tipText.innerText = quoteToMsg ? '正在主动引用: ' + (quoteToMsg.content || '[非文本]').substring(0, 15) + '...' : '正在主动发送...';
       }
-      document.getElementById('reply-tip').style.display = (!replyToMsg && !quoteToMsg) ? 'none' : 'flex';
+
+      if (!replyToMsg && !quoteToMsg) {
+        document.getElementById('reply-tip').style.display = 'none';
+      } else {
+        document.getElementById('reply-tip').style.display = 'flex';
+      }
     }
 
     function startReply(index) {
       const m = currentMsgs[index];
       const timestamp = Number(m.timestamp) || Date.now();
-      if (Date.now() - timestamp > 5 * 60 * 1000) return showToast('该消息已超过 5 分钟', 'error');
-      replyToMsg = m.msg_id; replyBaseTime = timestamp;
-      updateModeUI(); document.getElementById('msg-input').focus();
+      if (Date.now() - timestamp > 5 * 60 * 1000) {
+        return showToast('该消息已超过 5 分钟，无法被动回复', 'error');
+      }
+      replyToMsg = m.msg_id; 
+      replyBaseTime = timestamp;
+      updateModeUI();
+      document.getElementById('msg-input').focus();
     }
 
     function startQuote(index) {
       const m = currentMsgs[index];
       quoteToMsg = { msgId: m.msg_id, content: m.content }; 
       replyBaseTime = Number(m.timestamp) || Date.now();
-      updateModeUI(); document.getElementById('msg-input').focus();
+      updateModeUI();
+      document.getElementById('msg-input').focus();
     }
 
     function toggleMode() {
-      if (replyToMsg) replyToMsg = null;
-      else return showToast('请先点击某条消息进行回复', 'info');
+      if (replyToMsg) {
+        replyToMsg = null;
+      } else {
+        showToast('请先在聊天记录点击“↩️”选择要被动回复的对象', 'info');
+        return;
+      }
       updateModeUI();
     }
 
-    function cancelReply() { replyToMsg = null; quoteToMsg = null; updateModeUI(); }
+    function cancelReply() {
+      replyToMsg = null; quoteToMsg = null;
+      updateModeUI();
+    }
 
     async function recallMessage(index) {
       const msgId = currentMsgs[index].msg_id;
-      if (!confirm('确定要撤回这条消息吗？')) return;
+      const confirm = await showModal({ title: '撤回', html: '确定要撤回这条消息吗？', buttons: [{ text: '取消', value: false, type: 'cancel' }, { text: '撤回', value: true, type: 'danger' }] });
+      if (!confirm) return;
       const res = await fetch('/api/recall', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: currentSession.id, isGroup: currentSession.is_group === 1, messageId: msgId }) });
+      const data = await res.json();
       if (res.ok) { document.getElementById('messages').dataset.lastMsgId = ''; loadMessages(currentSession.id, false); }
-      else { const data = await res.json(); showToast(data.error, 'error'); }
+      else showToast(data.error, 'error');
     }
 
     async function kickMember(index) {
       const memberOpenid = currentMsgs[index].author_name;
-      if (!confirm('确定要踢出该成员吗？')) return;
-      const res = await fetch('/api/kick', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid, addToBlacklist: false }) });
+      const html = '<div style="margin-bottom:15px;font-size:14px;">确定要将 <b>' + formatName(memberOpenid) + '</b> 踢出群吗？</div>' +
+        '<label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;color:#ff4d4f;">' +
+          '<input type="checkbox" id="kick-blacklist" style="width:16px;height:16px;accent-color:#ff4d4f;">' +
+          '同时加入群黑名单' +
+        '</label>';
+      
+      const confirm = await showModal({ 
+        title: '踢出群聊', 
+        html: html, 
+        buttons: [{ text: '取消', value: false, type: 'cancel' }, { text: '确认踢出', value: true, type: 'danger' }] 
+      });
+      
+      if (!confirm) return;
+      const addToBlacklist = document.getElementById('kick-blacklist').checked;
+
+      const res = await fetch('/api/kick', { 
+        method: 'POST', 
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ groupOpenid: currentSession.id, memberOpenid: memberOpenid, addToBlacklist: addToBlacklist }) 
+      });
+      
       const data = await res.json();
-      if (res.ok) showToast('踢出成功', 'success'); else showToast(data.error, 'error');
+      if (res.ok) showToast('踢出成功', 'success');
+      else showToast(data.error, 'error');
     }
 
     async function sendMessage() {
       if (!currentSession) return showToast('请先选择会话', 'error');
       const content = document.getElementById('msg-input').value.trim();
       if (!content) return;
-      if (replyToMsg && Date.now() - replyBaseTime > 5 * 60 * 1000) { cancelReply(); return showToast('被动回复已超时', 'error'); }
+
+      if (replyToMsg && Date.now() - replyBaseTime > 5 * 60 * 1000) {
+        cancelReply();
+        return showToast('被动回复已超时，请重新点击回复按钮', 'error');
+      }
 
       const body = { sessionId: currentSession.id, isGroup: currentSession.is_group === 1, content: content };
+      
       if (replyToMsg) { body.msgId = replyToMsg; body.msgSeq = Math.floor(Math.random() * 100) + 1; }
       if (quoteToMsg) { body.quoteMsgId = quoteToMsg.msgId; body.quoteContent = quoteToMsg.content; }
 
