@@ -1,13 +1,15 @@
 {
   "name": "qq-msgbot",
   "version": "1.0.0",
-  "description": "QQ Bot Web Console on Cloudflare Workers with D1 & Durable Objects",
+  "description": "QQ Bot Web Console on Cloudflare Workers",
   "main": "src/index.js",
   "scripts": {
     "deploy": "wrangler deploy"
   },
-  "dependencies": {},
+  "dependencies": {
+    "postal-mime": "^2.2.1"
+  },
   "devDependencies": {
-    "wrangler": "4.87.0"
+    "wrangler": "^3.114.17"
   }
 }
