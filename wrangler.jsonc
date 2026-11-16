@@ -5,11 +5,16 @@
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  
+  // 必须启用 send_email 才能处理邮件事件
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
 
   "kv_namespaces": [
-    {
-      "binding": "BOT_KV"
-    }
+    { "binding": "BOT_KV" }
   ],
 
   "d1_databases": [
@@ -21,17 +26,11 @@
 
   "durable_objects": {
     "bindings": [
-      {
-        "name": "CHAT_ROOM",
-        "class_name": "ChatRoom"
-      }
+      { "name": "CHAT_ROOM", "class_name": "ChatRoom" }
     ]
   },
 
   "migrations": [
-    {
-      "tag": "v1",
-      "new_sqlite_classes": ["ChatRoom"]
-    }
+    { "tag": "v1", "new_sqlite_classes": ["ChatRoom"] }
   ]
 }
