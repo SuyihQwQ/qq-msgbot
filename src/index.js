@@ -32,8 +32,8 @@ function parseMessageContent(d) {
   }
   contentText = contentText.replace(/<faceType=[^>]+>/gi, '[表情]');
   contentText = contentText.replace(/<face[^>]+>/gi, '[表情]');
-  contentText = contentText.replace(/<@!?([A-Za-z0-9]+)>/gi, (match, openid) => `@${openid}`);
-  return contentText.trim() || '[暂不支持的消息]';
+  // 保留 @ 标签的原始形式，前端根据 Bot ID 判断是否被 @
+  return contentText.trim() || '[暂不支持的消息]'; 
 }
 
 // ================= node:crypto 密钥构造 =================
@@ -43,21 +43,20 @@ function makePrivateKey(secret) {
   return createPrivateKey({ key: pkcs8, format: 'der', type: 'pkcs8' });
 }
 
-// ================= 自动初始化 D1 =================
+// ================= 自动初始化 D1 数据库表 =================
 let dbInitialized = false;
 async function ensureTables(env) {
   if (dbInitialized) return;
   try {
     await env.DB.batch([
       env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, is_group INTEGER NOT NULL, name TEXT, last_active INTEGER, last_message TEXT)`),
-                       env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
-                         id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, type TEXT NOT NULL, role TEXT NOT NULL,
-                         content TEXT NOT NULL, attachments TEXT, msg_id TEXT, timestamp INTEGER, is_passive INTEGER DEFAULT 0,
-                         author_name TEXT, quote_msg_id TEXT, quote_content TEXT
-                       )`),
-                       env.DB.prepare(`CREATE TABLE IF NOT EXISTS id_mapping (id TEXT PRIMARY KEY, nickname TEXT NOT NULL)`)
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, type TEXT NOT NULL, role TEXT NOT NULL, 
+        content TEXT NOT NULL, attachments TEXT, msg_id TEXT, timestamp INTEGER, is_passive INTEGER DEFAULT 0, 
+        author_name TEXT, quote_msg_id TEXT, quote_content TEXT
+      )`),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS id_mapping (id TEXT PRIMARY KEY, nickname TEXT NOT NULL)`)
     ]);
-    // 兼容老数据
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN attachments TEXT`); } catch (e) {}
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN quote_msg_id TEXT`); } catch (e) {}
     try { await env.DB.exec(`ALTER TABLE messages ADD COLUMN quote_content TEXT`); } catch (e) {}
@@ -95,7 +94,7 @@ async function processAttachments(env, attachments) {
         const timeoutId = setTimeout(() => controller.abort(), 10000);
         const fileRes = await fetch(att.url, { signal: controller.signal, headers: { 'Referer': 'https://q.qq.com/' } });
         clearTimeout(timeoutId);
-
+        
         if (!fileRes.ok) throw new Error('下载失败');
         const buffer = await fileRes.arrayBuffer();
         if (buffer.byteLength > 2 * 1024 * 1024) {
@@ -138,13 +137,14 @@ async function sendQQMessage(env, targetId, isGroup, content, msgId = null, msgS
   const body = {};
   if (msgId) { body.msg_id = msgId; body.msg_seq = msgSeq; }
   if (quoteMsgId) { body.message_reference = { message_id: quoteMsgId }; }
-
-  if (content.includes('<qqbot-at-user') || content.includes('<qqbot-at-everyone')) {
-    body.msg_type = 2; body.markdown = { content: content }; body.content = '';
+  
+  // 包含 <@ 或 <qqbot-at-user 标签时，使用 markdown
+  if (content.includes('<qqbot-at-user') || content.includes('<qqbot-at-everyone') || content.includes('<@')) {
+    body.msg_type = 2; body.markdown = { content: content }; body.content = ''; 
   } else {
     body.msg_type = 0; body.content = content;
   }
-
+  
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `QQBot ${token}` }, body: JSON.stringify(body) });
   const data = await res.json();
   if (data.code) throw new Error(`发送失败: ${data.code} ${data.message || ''}`);
@@ -221,7 +221,7 @@ async function getMuteStatus(env, groupOpenid, memberOpenid) {
   });
   const data = await res.json();
   if (data.code) throw new Error(`查询失败: ${data.code} ${data.message || ''}`);
-
+  
   const mutedMember = data.members?.find(m => m.member_openid === memberOpenid);
   return {
     isMuted: !!mutedMember,
@@ -259,13 +259,13 @@ async function processIncomingMessage(payload, env, ctx) {
     let quoteContent = null;
     if (d.message_type === 103 && d.msg_elements && d.msg_elements.length > 0) {
       const refElement = d.msg_elements[0];
-      quoteMsgId = refElement.msg_idx || null;
+      quoteMsgId = refElement.msg_idx || null; 
       quoteContent = parseMessageContent(refElement);
       if (!safeContent) safeContent = '[引用消息]';
     }
 
     const attachmentsData = await processAttachments(env, d.attachments);
-
+    
     let previewContent = safeContent;
     if (!previewContent && attachmentsData) {
       try {
@@ -274,7 +274,7 @@ async function processIncomingMessage(payload, env, ctx) {
         else previewContent = '[文件]';
       } catch(e) { previewContent = '[附件]'; }
     }
-
+    
     const suffix = authorName && authorName.length > 4 ? authorName.slice(-4) : '未知';
     const finalPreview = `[用户_${suffix}] ${previewContent}`;
 
@@ -287,8 +287,8 @@ async function processIncomingMessage(payload, env, ctx) {
     const existing = await env.DB.prepare(`SELECT id FROM messages WHERE msg_id = ?`).bind(d.id).first();
     if (!existing) {
       await env.DB.prepare(
-        `INSERT INTO messages (session_id, type, role, content, attachments, msg_id, timestamp, author_name, quote_msg_id, quote_content)
-        VALUES (?, 'incoming', 'user', ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO messages (session_id, type, role, content, attachments, msg_id, timestamp, author_name, quote_msg_id, quote_content) 
+         VALUES (?, 'incoming', 'user', ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         sessionId, safeContent, attachmentsData, d.id, now, authorName, quoteMsgId, quoteContent
       ).run();
@@ -355,14 +355,14 @@ async function handleApi(request, env, path, ctx) {
       const fileId = path.split('/').pop();
       const fileBuffer = await env.BOT_KV.get(`file:${fileId}`, 'arrayBuffer');
       if (!fileBuffer) return new Response('File Not Found', { status: 404 });
-
+      
       const uint8 = new Uint8Array(fileBuffer.slice(0, 4));
       let contentType = 'application/octet-stream';
       if (uint8[0] === 0xFF && uint8[1] === 0xD8) contentType = 'image/jpeg';
       else if (uint8[0] === 0x89 && uint8[1] === 0x50) contentType = 'image/png';
 
-      return new Response(fileBuffer, {
-        headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=604800' }
+      return new Response(fileBuffer, { 
+        headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=604800' } 
       });
     }
 
@@ -396,17 +396,16 @@ async function handleApi(request, env, path, ctx) {
       return Response.json(results);
     }
 
-    // 👇 修复：改用子查询获取最新的 500 条记录
     if (path === '/api/messages' && request.method === 'GET') {
       const sessionId = new URL(request.url).searchParams.get('id');
       if (!sessionId) return Response.json({ error: 'Missing ID' }, { status: 400 });
-
+      
       const { results } = await env.DB.prepare(
         `SELECT * FROM (
           SELECT * FROM messages WHERE session_id = ? ORDER BY timestamp DESC LIMIT 500
         ) ORDER BY timestamp ASC`
       ).bind(sessionId).all();
-
+      
       return Response.json(results);
     }
 
@@ -421,20 +420,20 @@ async function handleApi(request, env, path, ctx) {
       const quoteContent = reqData.quoteContent || null;
 
       if (!sessionId || !content) return Response.json({ error: '参数缺失' }, { status: 400 });
-
+      
       const res = await sendQQMessage(env, sessionId, isGroup, content, msgId, msgSeq, quoteMsgId);
       const now = Date.now();
-
+      
       await env.DB.prepare(
-        `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, is_passive, quote_msg_id, quote_content)
-        VALUES (?, 'outgoing', 'bot', ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO messages (session_id, type, role, content, msg_id, timestamp, is_passive, quote_msg_id, quote_content) 
+         VALUES (?, 'outgoing', 'bot', ?, ?, ?, ?, ?, ?)`
       ).bind(
-        sessionId, content, res.id || null, now, msgId ? 1 : 0,
+        sessionId, content, res.id || null, now, msgId ? 1 : 0, 
         quoteMsgId || null, quoteContent || null
       ).run();
-
+      
       await env.DB.prepare(`UPDATE sessions SET last_active = ?, last_message = ? WHERE id = ?`).bind(now, `[我] ${content}`, sessionId).run();
-
+      
       ctx.waitUntil(env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('global')).broadcast({ type: 'update', sessionId }));
       return Response.json({ ok: true, msgId: res.id || null });
     }
@@ -460,7 +459,7 @@ async function handleApi(request, env, path, ctx) {
       const groupOpenid = urlObj.searchParams.get('group_id');
       const memberOpenid = urlObj.searchParams.get('member_id');
       if (!groupOpenid || !memberOpenid) return Response.json({ error: '参数缺失' }, { status: 400 });
-
+      
       const status = await getMuteStatus(env, groupOpenid, memberOpenid);
       return Response.json(status);
     }
@@ -488,9 +487,9 @@ async function handleApi(request, env, path, ctx) {
     }
 
     return Response.json({ error: 'Not Found' }, { status: 404 });
-  } catch (err) {
+  } catch (err) { 
     console.error('API异常:', err);
-    return Response.json({ error: err.message || 'Server Error' }, { status: 500 });
+    return Response.json({ error: err.message || 'Server Error' }, { status: 500 }); 
   }
 }
 
@@ -503,11 +502,11 @@ async function handleQQWebhook(request, env, ctx) {
 
     const signature = request.headers.get('X-Signature-Ed25519');
     const timestamp = request.headers.get('X-Signature-Timestamp');
-
+    
     if (!signature || !timestamp) {
       return new Response('Missing Signature', { status: 401 });
     }
-
+    
     const valid = await verifyQQSignature(env, signature, timestamp, rawBody);
     if (!valid) {
       console.warn('⛔ 验签未通过，拒绝处理请求');
@@ -522,9 +521,9 @@ async function handleQQWebhook(request, env, ctx) {
     else if (SYSTEM_EVENTS.includes(t)) ctx.waitUntil(processSystemEvent(payload, env, ctx));
 
     return Response.json({ ok: true });
-  } catch (e) {
+  } catch (e) { 
     console.error('Webhook 解析异常:', e);
-    return new Response('Bad Request', { status: 400 });
+    return new Response('Bad Request', { status: 400 }); 
   }
 }
 
@@ -538,4 +537,29 @@ export default {
     if (url.pathname === '/ws') return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('global')).fetch(request);
     return new Response('Not Found', { status: 404 });
   },
+
+  // 👇 非必须的邮件转发：如果不配置 Email Routing，这段代码永远不会触发
+  async email(message, env, ctx) {
+    try {
+      // 目标会话映射关系，你可以通过环境变量或硬编码修改
+      const targetSessionId = env.EMAIL_TARGET_SESSION_ID || ''; 
+      if (!targetSessionId) {
+        console.log('未配置 EMAIL_TARGET_SESSION_ID，忽略邮件');
+        return; // 静默退出
+      }
+
+      const isGroup = env.EMAIL_TARGET_IS_GROUP !== 'false'; // 默认 true
+
+      // 简单读取原始邮件内容（零依赖，无法深度解析附件/HTML等）
+      const rawEmail = await new Response(message.raw).text();
+      
+      // 构造发送到 QQ 的消息
+      const content = `📧 收到新邮件\n发件人: ${message.from}\n收件人: ${message.to}\n\n(邮件原文前500字符)\n${rawEmail.substring(0, 500)}`;
+      
+      await sendQQMessage(env, targetSessionId, isGroup, content);
+      console.log('邮件已转发到QQ:', targetSessionId);
+    } catch (e) {
+      console.error('处理邮件失败:', e.message);
+    }
+  }
 };
